@@ -211,6 +211,12 @@
       background: #2ed573;
       box-shadow: 0 0 6px #2ed573;
     }
+    .status-dot.rumble-active {
+      background: #ff9f43 !important;
+      box-shadow: 0 0 12px #ff9f43, 0 0 20px #ff5252 !important;
+      transform: scale(1.4);
+      transition: transform 0.05s ease;
+    }
 
     #https-banner {
       display: none;
@@ -1158,6 +1164,24 @@
           <input type="checkbox" id="chk-invert-steer"> Inverter Direção do Volante
         </label>
 
+        <!-- SEÇÃO DE FORCE FEEDBACK (VIBRAÇÃO DOS JOGOS) -->
+        <div style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 12px; padding-top: 12px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="font-size: 13px; font-weight: 700; color: var(--accent-color);">📳 Force Feedback (Vibração dos Jogos):</div>
+          <label class="toggle-item">
+            <input type="checkbox" id="chk-rumble-enabled" checked> Vibrar celular em batidas, zebras e derrapagens
+          </label>
+          <div class="slider-row">
+            <div class="slider-label-row">
+              <span>Intensidade da Vibração</span>
+              <span id="lbl-rumble-intensity">100%</span>
+            </div>
+            <input type="range" id="rng-rumble-intensity" min="20" max="150" value="100">
+          </div>
+          <button class="edit-bar-btn" id="btn-test-rumble" style="width: 100%; padding: 8px; background: #2f1717; color: #ff6b6b; border: 1px solid #ff4757; font-size: 12px;">
+            📳 Testar Vibração no Celular
+          </button>
+        </div>
+
         <button class="save-btn" id="btn-open-edit-mode-from-modal" style="margin-top: 8px;">
           ✏️ EDITAR POSIÇÃO E TAMANHO DOS CONTROLES
         </button>
@@ -1265,7 +1289,9 @@
       invertSteer: true,
       theme: 'crimson',
       customColor: '#b71020',
-      glow: 0.7
+      glow: 0.7,
+      rumbleEnabled: true,
+      rumbleIntensity: 1.0
     };
 
     // Layout Customizado (Posições e Escalas por controle)
@@ -1350,6 +1376,10 @@
     const rngSensSticks = document.getElementById('rng-sens-sticks');
     const lblSensSticks = document.getElementById('lbl-sens-sticks');
     const chkInvertSteer = document.getElementById('chk-invert-steer');
+    const chkRumbleEnabled = document.getElementById('chk-rumble-enabled');
+    const rngRumbleIntensity = document.getElementById('rng-rumble-intensity');
+    const lblRumbleIntensity = document.getElementById('lbl-rumble-intensity');
+    const btnTestRumble = document.getElementById('btn-test-rumble');
     const pickerCustomColor = document.getElementById('picker-custom-color');
     const rngGlow = document.getElementById('rng-glow');
     const lblGlowVal = document.getElementById('lbl-glow-val');
@@ -1457,6 +1487,24 @@
     chkInvertSteer.addEventListener('change', (e) => {
       config.invertSteer = e.target.checked;
       updateInvertBtnText();
+    });
+
+    chkRumbleEnabled.addEventListener('change', (e) => {
+      config.rumbleEnabled = e.target.checked;
+      saveAllSettings();
+    });
+    rngRumbleIntensity.addEventListener('input', (e) => {
+      config.rumbleIntensity = parseFloat((e.target.value / 100).toFixed(2));
+      lblRumbleIntensity.textContent = `${e.target.value}%`;
+      saveAllSettings();
+    });
+    btnTestRumble.addEventListener('click', () => {
+      if (navigator.vibrate) {
+        navigator.vibrate([70, 30, 120, 30, 80]);
+        triggerRumbleVfx(true);
+      } else {
+        alert("Vibração de hardware não detectada. Certifique-se de acessar por HTTPS no celular!");
+      }
     });
 
     function updateInvertBtnText() {
@@ -1750,6 +1798,11 @@
       rngGlow.value = Math.round(config.glow * 100);
       lblGlowVal.textContent = `${rngGlow.value}%`;
       chkInvertSteer.checked = config.invertSteer;
+      if (config.rumbleEnabled !== undefined) chkRumbleEnabled.checked = config.rumbleEnabled;
+      if (config.rumbleIntensity !== undefined) {
+        rngRumbleIntensity.value = Math.round(config.rumbleIntensity * 100);
+        lblRumbleIntensity.textContent = `${rngRumbleIntensity.value}%`;
+      }
       if (config.customColor) pickerCustomColor.value = config.customColor;
 
       updateInvertBtnText();
@@ -1817,7 +1870,55 @@
       }
     }
 
-    // --- WEBSOCKET DUAL ---
+    // --- WEBSOCKET DUAL & FORCE FEEDBACK RECEIVER ---
+    let lastRumbleTime = 0;
+    let rumbleVfxTimer = null;
+
+    function triggerRumbleVfx(active) {
+      if (active) {
+        statusDot.classList.add('rumble-active');
+        clearTimeout(rumbleVfxTimer);
+        rumbleVfxTimer = setTimeout(() => {
+          statusDot.classList.remove('rumble-active');
+        }, 150);
+      } else {
+        statusDot.classList.remove('rumble-active');
+      }
+    }
+
+    function handleGameRumble(large, small) {
+      if (!config.rumbleEnabled) return;
+
+      const l = parseInt(large || 0);
+      const s = parseInt(small || 0);
+
+      // Se ambos motores forem 0, encerra qualquer vibração em andamento
+      if (l === 0 && s === 0) {
+        if (navigator.vibrate) navigator.vibrate(0);
+        triggerRumbleVfx(false);
+        return;
+      }
+
+      const now = performance.now();
+      // Throttle de ~45ms para sincronização com o motor de vibração do smartphone
+      if (now - lastRumbleTime < 45) return;
+      lastRumbleTime = now;
+
+      const intensity = config.rumbleIntensity || 1.0;
+      const combined = Math.max(l, s);
+      const duration = Math.min(130, Math.max(25, Math.round((combined / 255) * 80 * intensity)));
+
+      if (navigator.vibrate) {
+        if (l > 120 && s > 120) {
+          // Colisão forte ou zebra pesada: padrão duplo impactante
+          navigator.vibrate([duration, 15, Math.round(duration * 0.7)]);
+        } else {
+          navigator.vibrate(duration);
+        }
+      }
+      triggerRumbleVfx(true);
+    }
+
     function connectWS() {
       const protocol = isHttps ? 'wss:' : 'ws:';
       const port = isHttps ? 8766 : 8765;
@@ -1831,6 +1932,15 @@
       ws.onopen = () => {
         statusText.textContent = "Online";
         statusDot.classList.add('online');
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "rumble") {
+            handleGameRumble(data.large, data.small);
+          }
+        } catch (e) {}
       };
 
       ws.onclose = () => {

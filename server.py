@@ -148,6 +148,35 @@ def start_http_servers(host, http_port, https_port, ssl_ctx):
         threading.Thread(target=run_https, daemon=True).start()
 
 
+# --- GERENCIADOR DE CLIENTES E FORCE FEEDBACK (RUMBLE) ---
+connected_clients = set()
+asyncio_loop = None
+
+
+def broadcast_rumble_sync(large_motor, small_motor):
+    """Encaminha o Force Feedback do jogo do driver ViGEmBus para os celulares conectados."""
+    global asyncio_loop, connected_clients
+    if asyncio_loop and asyncio_loop.is_running() and connected_clients:
+        asyncio_loop.call_soon_threadsafe(
+            lambda: asyncio.create_task(broadcast_rumble(large_motor, small_motor))
+        )
+
+
+async def broadcast_rumble(large_motor, small_motor):
+    if not connected_clients:
+        return
+    msg = json.dumps({
+        "type": "rumble",
+        "large": int(large_motor),
+        "small": int(small_motor)
+    })
+    for ws in list(connected_clients):
+        try:
+            await ws.send(msg)
+        except Exception:
+            pass
+
+
 # --- GERENCIADOR DE INPUTS (CONTROLE XBOX E TECLADO) ---
 class ControllerManager:
     def __init__(self):
@@ -158,7 +187,13 @@ class ControllerManager:
         if HAVE_VGAMEPAD:
             try:
                 self.gamepad = vg.VX360Gamepad()
-                print("[OK] Controle Virtual Xbox 360 ativo via ViGEmBus!")
+                
+                # Registra callback de Force Feedback (Rumble dos jogos)
+                def rumble_callback(client, target, large_motor, small_motor, led_number, user_data):
+                    broadcast_rumble_sync(large_motor, small_motor)
+
+                self.gamepad.register_notification(rumble_callback)
+                print("[OK] Controle Virtual Xbox 360 ativo com Force Feedback (Rumble) via ViGEmBus!")
             except Exception as e:
                 print(f"[!] Erro ao criar VX360Gamepad: {e}")
                 self.mode = "keyboard"
@@ -286,6 +321,8 @@ async def ws_handler(websocket):
     client_ip = websocket.remote_address[0]
     print(f"\n[+] Celular conectado! IP: {client_ip}")
 
+    connected_clients.add(websocket)
+
     await websocket.send(json.dumps({
         "type": "welcome",
         "has_gamepad": HAVE_VGAMEPAD,
@@ -329,12 +366,15 @@ async def ws_handler(websocket):
     except Exception:
         pass
     finally:
+        connected_clients.discard(websocket)
         print(f"\n[-] Celular desconectado ({client_ip}). Controles zerados.")
         controller.reset_all()
 
 
 async def main():
     import websockets
+    global asyncio_loop
+    asyncio_loop = asyncio.get_running_loop()
 
     local_ip = get_local_ip()
     ensure_ssl_certs(local_ip)
