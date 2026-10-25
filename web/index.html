@@ -169,6 +169,28 @@
       box-shadow: 0 0 12px var(--primary-glow);
     }
 
+    .conn-mode-tabs {
+      display: flex;
+      background: #191215;
+      border-radius: 16px;
+      padding: 2px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .conn-tab {
+      padding: 4px 10px;
+      border-radius: 14px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #8b949e;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .conn-tab.active {
+      background: #0984e3;
+      color: #ffffff;
+      box-shadow: 0 0 10px rgba(9, 132, 227, 0.5);
+    }
+
     .top-actions {
       display: flex;
       align-items: center;
@@ -974,19 +996,61 @@
 
   <!-- BARRA SUPERIOR -->
   <div id="top-nav">
-    <div class="mode-tabs">
-      <div class="mode-tab active" id="tab-gamepad">🎮 Gamepad</div>
-      <div class="mode-tab" id="tab-wheel">🏎️ Volante</div>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <div class="mode-tabs">
+        <div class="mode-tab active" id="tab-gamepad">🎮 Gamepad</div>
+        <div class="mode-tab" id="tab-wheel">🏎️ Volante</div>
+      </div>
+
+      <!-- Alternador de Destino: PC (Wi-Fi) vs TV (Bluetooth) -->
+      <div class="conn-mode-tabs" id="conn-mode-selector">
+        <div class="conn-tab active" id="conn-tab-wifi" title="Conectar no PC via Wi-Fi">📡 PC Wi-Fi</div>
+        <div class="conn-tab" id="conn-tab-bt" title="Conectar na Smart TV Samsung / TVBox via Bluetooth">📶 TV Bluetooth</div>
+      </div>
     </div>
 
     <div class="top-actions">
-      <div class="status-badge">
+      <div class="status-badge" id="btn-status-badge" style="cursor: pointer;" title="Ver detalhes da conexão">
         <span class="status-dot" id="status-dot"></span>
         <span id="status-text">Conectando...</span>
       </div>
       <div class="icon-btn" id="btn-enter-edit-mode" title="Editar Posição e Tamanho dos Controles">✏️</div>
       <div class="icon-btn" id="btn-fullscreen" title="Tela Cheia">⛶</div>
       <div class="icon-btn" id="btn-edit-layout" title="Configurações e Estética">⚙️</div>
+    </div>
+  </div>
+
+  <!-- MODAL DE CONEXÃO BLUETOOTH (SMART TV SAMSUNG / TVBOX) -->
+  <div id="bt-modal" style="display:none; position:fixed; inset:0; background:rgba(10,8,9,0.95); z-index:2200; align-items:center; justify-content:center; padding:16px;">
+    <div class="modal-sheet" style="max-width: 480px;">
+      <div class="modal-header">
+        <div class="modal-title">Conectar na TV (Bluetooth HID) 📶</div>
+        <div style="cursor: pointer; font-size: 20px;" id="close-bt-modal">✕</div>
+      </div>
+      <div style="padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; font-size: 13px; line-height: 1.4;">
+        <div style="background: rgba(9, 132, 227, 0.15); border: 1px solid rgba(9, 132, 227, 0.4); padding: 12px; border-radius: 12px; color: #74b9ff;">
+          💡 <b>Sem instalar nada na TV!</b> O celular se transforma em um controle de verdade compatível com <b>Smart TV Samsung (Tizen)</b> e <b>TVBox (Android)</b>.
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <b>Passo a passo para parear:</b>
+          <div style="color: #cbd5e1;">1. Toque no botão verde abaixo para tornar este celular visível.</div>
+          <div style="color: #cbd5e1;">2. Na TV Samsung, acesse: <b>Menu ⚙️ -> Conexões -> Dispositivos Externos -> Gerenciador de Dispositivos -> Controle Bluetooth</b> (ou Bluetooth na TVBox).</div>
+          <div style="color: #cbd5e1;">3. Selecione <b>"Remote Gamepad"</b> na lista da TV e confirme!</div>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; background: #140e11; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+          <span>Status Bluetooth:</span>
+          <span id="bt-status-label" style="font-weight: 800; color: #f9ca24;">⚪ Aguardando Pareamento</span>
+        </div>
+
+        <button class="save-btn" id="btn-trigger-bt-discoverable" style="background: #10ac84; padding: 12px; font-size: 14px; border: none; border-radius: 12px; cursor: pointer;">
+          📶 TORNAR CELULAR VISÍVEL NA TV (PAREAR)
+        </button>
+      </div>
+      <div class="modal-footer" style="justify-content: flex-end;">
+        <button class="edit-bar-btn" id="btn-close-bt-modal" style="padding: 8px 20px;">Fechar</button>
+      </div>
     </div>
   </div>
 
@@ -1200,6 +1264,12 @@
         <button class="save-btn" id="btn-open-edit-mode-from-modal" style="margin-top: 8px;">
           ✏️ EDITAR POSIÇÃO E TAMANHO DOS CONTROLES
         </button>
+
+        <a href="/RemoteWheel.apk" download="RemoteWheel.apk" style="text-decoration: none; margin-top: 6px;">
+          <button type="button" class="save-btn" style="width: 100%; background: #0984e3; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px;">
+            <span>📥</span> BAIXAR APK ANDROID (BLUETOOTH TV & PC)
+          </button>
+        </a>
       </div>
 
       <!-- ABA 2: TEMAS E CORES -->
@@ -1893,6 +1963,102 @@
     let rumbleVfxTimer = null;
     let zeroDebounceTimer = null;
 
+    let currentConnMode = "wifi"; // "wifi" ou "bluetooth"
+    const connTabWifi = document.getElementById('conn-tab-wifi');
+    const connTabBt = document.getElementById('conn-tab-bt');
+    const btModal = document.getElementById('bt-modal');
+    const closeBtModal = document.getElementById('close-bt-modal');
+    const btnCloseBtModal = document.getElementById('btn-close-bt-modal');
+    const btnTriggerBtDiscoverable = document.getElementById('btn-trigger-bt-discoverable');
+    const btStatusLabel = document.getElementById('bt-status-label');
+    const btnStatusBadge = document.getElementById('btn-status-badge');
+
+    function setConnectionMode(mode) {
+      currentConnMode = mode;
+      if (mode === "wifi") {
+        connTabWifi.classList.add('active');
+        connTabBt.classList.remove('active');
+        if (window.AndroidController) window.AndroidController.setConnectionMode("wifi");
+        statusText.textContent = (ws && ws.readyState === WebSocket.OPEN) ? "PC Online" : "Conectando PC...";
+        statusDot.className = "status-dot" + (ws && ws.readyState === WebSocket.OPEN ? " online" : "");
+      } else {
+        connTabBt.classList.add('active');
+        connTabWifi.classList.remove('active');
+        if (window.AndroidController) {
+          window.AndroidController.setConnectionMode("bluetooth");
+          const isConnected = window.AndroidController.isBluetoothConnected();
+          statusText.textContent = isConnected ? "TV Conectada" : "TV Pareamento";
+          statusDot.className = "status-dot" + (isConnected ? " online" : "");
+        } else {
+          statusText.textContent = "TV Bluetooth";
+        }
+      }
+    }
+
+    if (connTabWifi) connTabWifi.addEventListener('click', () => setConnectionMode("wifi"));
+    if (connTabBt) {
+      connTabBt.addEventListener('click', () => {
+        setConnectionMode("bluetooth");
+        btModal.style.display = 'flex';
+      });
+    }
+
+    if (btnStatusBadge) {
+      btnStatusBadge.addEventListener('click', () => {
+        if (currentConnMode === "bluetooth") {
+          btModal.style.display = 'flex';
+        }
+      });
+    }
+
+    if (closeBtModal) closeBtModal.addEventListener('click', () => btModal.style.display = 'none');
+    if (btnCloseBtModal) btnCloseBtModal.addEventListener('click', () => btModal.style.display = 'none');
+
+    if (btnTriggerBtDiscoverable) {
+      btnTriggerBtDiscoverable.addEventListener('click', () => {
+        if (window.AndroidController) {
+          window.AndroidController.makeBluetoothDiscoverable();
+          btStatusLabel.textContent = "🟡 Visível! Procure na TV Samsung / TVBox";
+          btStatusLabel.style.color = "#f9ca24";
+        } else {
+          alert("Para usar o Modo Bluetooth direto na TV, instale o APK RemoteWheel no celular!");
+        }
+      });
+    }
+
+    // Callbacks disparados pelo Android Nativo
+    window.onBluetoothStatusChanged = function(status, devName) {
+      if (status === "connected") {
+        btStatusLabel.textContent = "🟢 Conectado: " + (devName || "TV");
+        btStatusLabel.style.color = "#2ed573";
+        if (currentConnMode === "bluetooth") {
+          statusText.textContent = devName ? "TV: " + devName : "TV Conectada";
+          statusDot.className = "status-dot online";
+        }
+      } else if (status === "ready") {
+        btStatusLabel.textContent = "⚪ Pronto para parear";
+        btStatusLabel.style.color = "#74b9ff";
+        if (currentConnMode === "bluetooth") {
+          statusText.textContent = "TV Aguardando";
+          statusDot.className = "status-dot";
+        }
+      } else if (status === "connecting") {
+        btStatusLabel.textContent = "🟡 Conectando à TV...";
+        btStatusLabel.style.color = "#f9ca24";
+      } else {
+        btStatusLabel.textContent = "⚪ Desconectado da TV";
+        btStatusLabel.style.color = "#cbd5e1";
+        if (currentConnMode === "bluetooth") {
+          statusText.textContent = "TV Desconectada";
+          statusDot.className = "status-dot";
+        }
+      }
+    };
+
+    window.setAndroidBridgeActive = function(active) {
+      console.log("Ponte Android Ativa: " + active);
+    };
+
     function triggerRumbleVfx(active) {
       if (active) {
         statusDot.classList.add('rumble-active');
@@ -1906,7 +2072,7 @@
     }
 
     function handleGameRumble(large, small) {
-      if (!config.rumbleEnabled || !navigator.vibrate) return;
+      if (!config.rumbleEnabled) return;
 
       const l = parseInt(large || 0);
       const s = parseInt(small || 0);
@@ -1915,7 +2081,7 @@
       if (l === 0 && s === 0) {
         clearTimeout(zeroDebounceTimer);
         zeroDebounceTimer = setTimeout(() => {
-          navigator.vibrate(0);
+          if (navigator.vibrate) navigator.vibrate(0);
           continuousRumbleStart = 0;
           triggerRumbleVfx(false);
         }, 40);
@@ -1929,7 +2095,7 @@
       if (!continuousRumbleStart) continuousRumbleStart = now;
       if (now - continuousRumbleStart > 1800) {
         // Pausa preventiva de 60ms para o atuador eletromagnético esfriar e o Android não bloquear
-        navigator.vibrate(0);
+        if (navigator.vibrate) navigator.vibrate(0);
         continuousRumbleStart = now - 1200; // concede respiro térmico
         return;
       }
@@ -1940,38 +2106,45 @@
 
       const intensity = config.rumbleIntensity || 1.0;
 
-      // Gera pulsos de ciclo de trabalho (duty cycle) com micro-pausas integradas:
-      // Dá textura mecânica real (parece motor roncando / asfalto) e não satura o motor!
-      if (l > 140 && s > 140) {
-        // Grande impacto (colisão, explosão ou zebra alta)
+      // Gera pulsos de ciclo de trabalho (duty cycle) com micro-pausas integradas
+      if (window.AndroidController) {
+        // Vibração nativa ultra precisa
         const d = Math.round(50 * intensity);
-        navigator.vibrate([d, 25, Math.round(d * 0.8)]);
-      } else if (l > 80 || s > 80) {
-        // Vibração média (curva no limite de aderência, arrancada)
-        const d = Math.round(40 * intensity);
-        navigator.vibrate([d, 30, Math.round(d * 0.7)]);
-      } else {
-        // Vibração sutil (asfalto rugoso, rotação de marcha)
-        const d = Math.round(30 * intensity);
-        navigator.vibrate([d, 25]);
+        window.AndroidController.vibrate(d);
+      } else if (navigator.vibrate) {
+        if (l > 140 && s > 140) {
+          const d = Math.round(50 * intensity);
+          navigator.vibrate([d, 25, Math.round(d * 0.8)]);
+        } else if (l > 80 || s > 80) {
+          const d = Math.round(40 * intensity);
+          navigator.vibrate([d, 30, Math.round(d * 0.7)]);
+        } else {
+          const d = Math.round(30 * intensity);
+          navigator.vibrate([d, 25]);
+        }
       }
 
       triggerRumbleVfx(true);
     }
 
     function connectWS() {
+      const serverHost = localStorage.getItem('rw_server_ip') || (location.hostname && location.hostname !== '' ? location.hostname : '192.168.1.101');
       const protocol = isHttps ? 'wss:' : 'ws:';
       const port = isHttps ? 8766 : 8765;
-      const url = `${protocol}//${location.hostname}:${port}`;
+      const url = `${protocol}//${serverHost}:${port}`;
 
-      statusText.textContent = "Conectando...";
-      statusDot.classList.remove('online');
+      if (currentConnMode === "wifi") {
+        statusText.textContent = "Conectando PC...";
+        statusDot.classList.remove('online');
+      }
 
       ws = new WebSocket(url);
 
       ws.onopen = () => {
-        statusText.textContent = "Online";
-        statusDot.classList.add('online');
+        if (currentConnMode === "wifi") {
+          statusText.textContent = "PC Online";
+          statusDot.classList.add('online');
+        }
       };
 
       ws.onmessage = (event) => {
@@ -1984,8 +2157,10 @@
       };
 
       ws.onclose = () => {
-        statusText.textContent = "Reconectando...";
-        statusDot.classList.remove('online');
+        if (currentConnMode === "wifi") {
+          statusText.textContent = "Reconectando PC...";
+          statusDot.classList.remove('online');
+        }
         setTimeout(connectWS, 1500);
       };
 
@@ -1993,17 +2168,15 @@
     }
 
     function networkLoop() {
-      if (ws && ws.readyState === WebSocket.OPEN && !isEditMode) {
-        if (currentMode === "gamepad") {
-          ws.send(JSON.stringify({
-            type: "gamepad_input",
-            ...gpState
-          }));
-        } else {
-          ws.send(JSON.stringify({
-            type: "input",
-            ...wheelState
-          }));
+      if (!isEditMode) {
+        const payload = currentMode === "gamepad" 
+          ? { type: "gamepad_input", ...gpState } 
+          : { type: "input", ...wheelState };
+
+        if (currentConnMode === "bluetooth" && window.AndroidController) {
+          window.AndroidController.sendGamepadInput(JSON.stringify(payload));
+        } else if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify(payload));
         }
       }
       requestAnimationFrame(networkLoop);

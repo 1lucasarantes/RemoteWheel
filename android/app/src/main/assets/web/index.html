@@ -1,0 +1,2465 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Remote Gamepad & Wheel 🏎️🎮</title>
+  <meta name="theme-color" content="#120e10">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <style>
+    :root {
+      --primary-color: #b71020;
+      --primary-dark: #63050d;
+      --primary-glow: rgba(183, 16, 32, 0.7);
+      --accent-color: #ff4757;
+      --bg-color: #120e10;
+      --card-bg: #1d1618;
+      --stick-knob: #ffeded;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      touch-action: none;
+      transition: background-color 0.3s ease;
+    }
+
+    /* ============================================================
+       TELA DE BLOQUEIO VERTICAL (PORTRAIT GUARD)
+       ============================================================ */
+    #rotate-device-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at center, #241418 0%, #0d090b 100%);
+      z-index: 9999;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+      gap: 20px;
+    }
+
+    @media (orientation: portrait) {
+      #rotate-device-overlay {
+        display: flex !important;
+      }
+      #top-nav, #gamepad-view, #wheel-view, #edit-mode-bar, #edit-inspector-bar {
+        display: none !important;
+      }
+    }
+
+    @media (orientation: landscape) {
+      #rotate-device-overlay {
+        display: none !important;
+      }
+    }
+
+    .phone-icon-anim {
+      width: 80px;
+      height: 80px;
+      border: 4px solid var(--accent-color);
+      border-radius: 16px;
+      position: relative;
+      animation: rotatePhone 2.5s infinite ease-in-out;
+      box-shadow: 0 0 25px var(--primary-glow);
+    }
+    .phone-icon-anim::after {
+      content: '';
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--accent-color);
+    }
+
+    @keyframes rotatePhone {
+      0%, 15% { transform: rotate(0deg); }
+      45%, 75% { transform: rotate(90deg); }
+      90%, 100% { transform: rotate(0deg); }
+    }
+
+    .rotate-title {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--accent-color);
+    }
+    .rotate-desc {
+      font-size: 14px;
+      color: #b0a0a5;
+      max-width: 320px;
+      line-height: 1.4;
+    }
+
+    .btn-fullscreen-landscape {
+      background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+      border: none;
+      border-radius: 50px;
+      padding: 16px 32px;
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      box-shadow: 0 0 25px var(--primary-glow);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .btn-fullscreen-landscape:active {
+      transform: scale(0.96);
+    }
+
+    /* ============================================================
+       BARRA SUPERIOR (HEADER)
+       ============================================================ */
+    #top-nav {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 16px;
+      background: rgba(18, 14, 16, 0.85);
+      backdrop-filter: blur(8px);
+      z-index: 500;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .mode-tabs {
+      display: flex;
+      background: #1f181b;
+      border-radius: 20px;
+      padding: 2px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .mode-tab {
+      padding: 4px 14px;
+      border-radius: 16px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #a09095;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .mode-tab.active {
+      background: var(--primary-color);
+      color: #ffffff;
+      box-shadow: 0 0 12px var(--primary-glow);
+    }
+
+    .conn-mode-tabs {
+      display: flex;
+      background: #191215;
+      border-radius: 16px;
+      padding: 2px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .conn-tab {
+      padding: 4px 10px;
+      border-radius: 14px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #8b949e;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .conn-tab.active {
+      background: #0984e3;
+      color: #ffffff;
+      box-shadow: 0 0 10px rgba(9, 132, 227, 0.5);
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .icon-btn {
+      background: #1f181b;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #fff;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .icon-btn:active {
+      background: var(--primary-color);
+    }
+
+    .status-badge {
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ff4757;
+    }
+    .status-dot.online {
+      background: #2ed573;
+      box-shadow: 0 0 6px #2ed573;
+    }
+    .status-dot.rumble-active {
+      background: #ff9f43 !important;
+      box-shadow: 0 0 12px #ff9f43, 0 0 20px #ff5252 !important;
+      transform: scale(1.4);
+      transition: transform 0.05s ease;
+    }
+
+    #https-banner {
+      display: none;
+      position: absolute;
+      top: 42px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #b33939;
+      color: #fff;
+      padding: 4px 12px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+      z-index: 600;
+    }
+    #https-banner a {
+      color: #ffd32a;
+      text-decoration: underline;
+      margin-left: 6px;
+      font-weight: 800;
+    }
+
+    /* ============================================================
+       BARRA DO MODO DE EDIÇÃO (DRAG & RESIZE TOOLBAR)
+       ============================================================ */
+    #edit-mode-bar {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 42px;
+      background: #ff4757;
+      color: #fff;
+      z-index: 1000;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 16px;
+      font-size: 13px;
+      font-weight: 800;
+      box-shadow: 0 4px 15px rgba(255, 71, 87, 0.5);
+    }
+    .edit-bar-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .edit-bar-btn {
+      background: #120e10;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 6px 12px;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .edit-bar-btn.save {
+      background: #2ed573;
+      color: #07150c;
+    }
+
+    /* INSPETOR FLUTUANTE DE REDIMENSIONAMENTO */
+    #edit-inspector-bar {
+      display: none;
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(22, 16, 18, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 16px;
+      padding: 8px 16px;
+      z-index: 1050;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.8);
+      backdrop-filter: blur(8px);
+    }
+    #inspector-item-name {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--accent-color);
+      min-width: 90px;
+    }
+    .inspector-slider-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+    .inspector-slider-box input[type="range"] {
+      width: 110px;
+      accent-color: var(--primary-color);
+    }
+
+    /* ESTILO VISUAL DOS ELEMENTOS NO MODO DE EDIÇÃO */
+    body.is-editing .customizable-ctrl {
+      outline: 2px dashed rgba(255, 255, 255, 0.5) !important;
+      outline-offset: 4px !important;
+      cursor: grab !important;
+      touch-action: none !important;
+    }
+    body.is-editing .customizable-ctrl.selected-ctrl {
+      outline: 2px solid #00f2fe !important;
+      box-shadow: 0 0 15px rgba(0, 242, 254, 0.7) !important;
+    }
+
+    /* ============================================================
+       VIEW CONTAINERS COM ISOLAMENTO TOTAL
+       ============================================================ */
+    .view-container {
+      display: none !important;
+      position: absolute;
+      top: 40px;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      overflow: hidden;
+    }
+    .view-container.active {
+      display: flex !important;
+    }
+
+    /* ============================================================
+       MODO 1: GAMEPAD ESTILO XBOX (RESPONSIVO COM PALCO)
+       ============================================================ */
+    #gamepad-view {
+      background: var(--bg-color);
+      align-items: center;
+      justify-content: center;
+    }
+
+    .gamepad-stage {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      max-width: 980px;
+      display: flex;
+      justify-content: space-between;
+      align-items: stretch;
+      padding: 4px 12px 10px 12px;
+    }
+
+    .gp-btn {
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, var(--primary-color) 0%, var(--primary-dark) 100%);
+      border: 2px solid rgba(0, 0, 0, 0.4);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6), inset 0 2px 4px rgba(255, 255, 255, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      color: #ffffff;
+      cursor: pointer;
+      touch-action: none;
+      transition: transform 0.04s, background 0.05s, box-shadow 0.05s;
+    }
+    .gp-btn:active, .gp-btn.pressed {
+      transform: scale(0.92);
+      background: radial-gradient(circle at center, var(--accent-color) 0%, var(--primary-color) 100%);
+      box-shadow: 0 0 16px var(--primary-glow), inset 0 2px 6px rgba(0,0,0,0.4);
+    }
+
+    .wing {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    .triggers-row {
+      display: flex;
+      align-items: center;
+      gap: clamp(8px, 2vw, 16px);
+      padding-top: 4px;
+    }
+    .triggers-row.right {
+      justify-content: flex-end;
+    }
+
+    .btn-trigger-lg {
+      width: clamp(52px, 8.5vw, 76px);
+      height: clamp(52px, 8.5vw, 76px);
+      font-size: clamp(16px, 2.4vw, 20px);
+    }
+    .btn-bumper-md {
+      width: clamp(44px, 7vw, 62px);
+      height: clamp(44px, 7vw, 62px);
+      font-size: clamp(13px, 2vw, 17px);
+    }
+
+    .wing-bottom-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      padding-bottom: 4px;
+      gap: 10px;
+    }
+
+    /* D-PAD */
+    #dpad-container {
+      width: clamp(100px, 16vw, 136px);
+      height: clamp(100px, 16vw, 136px);
+      border-radius: 50%;
+      position: relative;
+      background: radial-gradient(circle at center, var(--primary-color) 0%, var(--primary-dark) 100%);
+      border: 3px solid rgba(0, 0, 0, 0.5);
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.7);
+      flex-shrink: 0;
+    }
+    .dpad-arrow {
+      position: absolute;
+      width: 36%;
+      height: 36%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(16px, 2.5vw, 22px);
+      color: #ffffff;
+      cursor: pointer;
+    }
+    .dpad-arrow:active, .dpad-arrow.pressed {
+      color: #fff;
+      text-shadow: 0 0 10px var(--accent-color);
+    }
+    #dpad-up { top: 0; left: 32%; }
+    #dpad-down { bottom: 0; left: 32%; }
+    #dpad-left { top: 32%; left: 0; }
+    #dpad-right { top: 32%; right: 0; }
+
+    /* JOYSTICKS ANALÓGICOS */
+    .stick-base {
+      width: clamp(95px, 15vw, 130px);
+      height: clamp(95px, 15vw, 130px);
+      border-radius: 50%;
+      position: relative;
+      background: radial-gradient(circle at center, var(--primary-dark) 0%, #100608 100%);
+      border: 3px solid rgba(0, 0, 0, 0.6);
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.7), inset 0 3px 6px rgba(0,0,0,0.5);
+      flex-shrink: 0;
+    }
+    .stick-knob {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: clamp(48px, 7.5vw, 66px);
+      height: clamp(48px, 7.5vw, 66px);
+      margin-left: calc(-1 * clamp(48px, 7.5vw, 66px) / 2);
+      margin-top: calc(-1 * clamp(48px, 7.5vw, 66px) / 2);
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #ffffff 0%, var(--stick-knob) 60%, #b89292 100%);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6), inset 0 2px 4px rgba(255, 255, 255, 0.8);
+      pointer-events: none;
+      transition: transform 0.03s linear;
+    }
+
+    /* ABXY DIAMOND */
+    #abxy-container {
+      width: clamp(105px, 17vw, 142px);
+      height: clamp(105px, 17vw, 142px);
+      position: relative;
+      flex-shrink: 0;
+    }
+    .abxy-btn {
+      position: absolute;
+      width: clamp(38px, 6vw, 52px);
+      height: clamp(38px, 6vw, 52px);
+      font-size: clamp(15px, 2.2vw, 20px);
+    }
+    #btn-y { top: 0; left: 32%; }
+    #btn-a { bottom: 0; left: 32%; }
+    #btn-x { top: 32%; left: 0; }
+    #btn-b { top: 32%; right: 0; }
+
+    /* CONTROLES CENTRAIS */
+    .center-column {
+      width: clamp(110px, 18vw, 160px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 0;
+      flex-shrink: 0;
+    }
+
+    .center-top-x {
+      width: 38px;
+      height: 38px;
+      font-size: 16px;
+    }
+
+    .center-mid-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .center-nav-btn {
+      width: 42px;
+      height: 42px;
+      font-size: 16px;
+    }
+    .center-home-btn {
+      width: clamp(42px, 6.5vw, 48px);
+      height: clamp(42px, 6.5vw, 48px);
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #2a2024 0%, #120e10 100%);
+      border: 2px solid var(--accent-color);
+      box-shadow: 0 0 10px var(--primary-glow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      touch-action: none;
+      transition: all 0.08s ease;
+      color: var(--accent-color);
+    }
+    .center-home-btn:active, .center-home-btn.pressed {
+      background: var(--primary-color) !important;
+      color: #fff !important;
+      box-shadow: 0 0 20px var(--accent-color) !important;
+      transform: scale(0.92);
+    }
+
+    .center-bot-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .stick-click-btn {
+      width: 46px;
+      height: 46px;
+      font-size: 10px;
+      line-height: 1.1;
+      text-align: center;
+    }
+
+    /* ============================================================
+       MODO 2: VOLANTE DE CORRIDA (WHEEL)
+       ============================================================ */
+    #wheel-view {
+      display: none;
+      grid-template-columns: clamp(95px, 16vw, 145px) 1fr clamp(95px, 16vw, 145px);
+      padding: 6px 12px;
+      gap: 10px;
+      height: calc(100vh - 40px);
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+    #wheel-view.active {
+      display: grid !important;
+    }
+
+    .wheel-pedal-col {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      height: 100%;
+      box-sizing: border-box;
+      justify-content: space-between;
+      overflow: hidden;
+    }
+
+    .pedal-box {
+      flex: 1;
+      min-height: 0;
+      border-radius: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.12);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.08s;
+      margin: 2px 0;
+    }
+    #wheel-brake {
+      background: linear-gradient(180deg, #2b1116 0%, #170709 100%);
+      color: #ff4757;
+      border-color: rgba(255, 71, 87, 0.3);
+    }
+    #wheel-brake.pressed {
+      background: linear-gradient(180deg, #ff4757 0%, #b31e2c 100%);
+      color: #fff;
+      box-shadow: 0 0 35px rgba(255, 71, 87, 0.8);
+      transform: scale(0.97);
+    }
+
+    #wheel-gas {
+      background: linear-gradient(180deg, #0e291e 0%, #061710 100%);
+      color: #2ed573;
+      border-color: rgba(46, 213, 115, 0.3);
+    }
+    #wheel-gas.pressed {
+      background: linear-gradient(180deg, #2ed573 0%, #158f4a 100%);
+      color: #fff;
+      box-shadow: 0 0 35px rgba(46, 213, 115, 0.8);
+      transform: scale(0.97);
+    }
+
+    .wheel-aux-btn {
+      height: clamp(36px, 6.2vh, 46px);
+      flex-shrink: 0;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: #1b2230;
+      color: #ced6e0;
+      font-size: clamp(11px, 1.8vw, 13px);
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      touch-action: none;
+    }
+    .wheel-aux-btn.pressed {
+      background: #4facfe;
+      color: #000;
+    }
+
+    .wheel-center-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      height: 100%;
+      overflow: hidden;
+      padding-bottom: 2px;
+    }
+
+    .wheel-hud-bar {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(22, 28, 40, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      padding: 6px 12px;
+    }
+    #wheel-angle-txt {
+      font-size: 15px;
+      font-weight: 800;
+      color: #00f2fe;
+    }
+    #sensor-raw-info {
+      font-size: 11px;
+      color: #8b949e;
+      font-family: monospace;
+    }
+
+    .hud-mini-btn {
+      background: #2a3449;
+      color: #fff;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .wheel-box {
+      width: clamp(130px, 25vh, 190px);
+      height: clamp(130px, 25vh, 190px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: auto 0;
+      pointer-events: none;
+    }
+    #wheel-svg {
+      width: 100%;
+      height: 100%;
+      filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.7));
+      transition: transform 0.03s linear;
+    }
+
+    .wheel-bottom-dash {
+      display: flex;
+      gap: 12px;
+      width: 100%;
+      max-width: 290px;
+      justify-content: center;
+      margin-bottom: 2px;
+    }
+    .dash-btn {
+      flex: 1;
+      height: clamp(34px, 5.8vh, 42px);
+      background: #1b2333;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 12px;
+      color: #e2e8f0;
+      font-size: clamp(11px, 1.8vw, 13px);
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+      touch-action: none;
+      transition: all 0.08s;
+    }
+    .dash-btn:active, .dash-btn.pressed {
+      background: var(--primary-color);
+      color: #fff;
+      box-shadow: 0 0 14px var(--primary-glow);
+      transform: scale(0.96);
+    }
+
+    /* ============================================================
+       PAINEL GERAL DE CONFIGURAÇÕES (MODAL UNIFICADO COM ABAS)
+       ============================================================ */
+    #edit-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 8, 9, 0.94);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-sheet {
+      background: var(--card-bg);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      max-width: 520px;
+      width: 100%;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+      overflow: hidden;
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 14px 20px;
+    }
+    .modal-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--accent-color);
+    }
+
+    .config-nav {
+      display: flex;
+      background: #140e11;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .config-nav-btn {
+      flex: 1;
+      padding: 10px 8px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #998c90;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .config-nav-btn.active {
+      color: #ffffff;
+      border-bottom-color: var(--accent-color);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .config-tab-content {
+      padding: 16px 20px;
+      overflow-y: auto;
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .config-tab-content.active {
+      display: flex;
+    }
+
+    .slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .slider-label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .slider-label-row span:last-child {
+      color: var(--accent-color);
+      font-weight: 800;
+    }
+    .slider-row input[type="range"] {
+      width: 100%;
+      accent-color: var(--primary-color);
+    }
+
+    .theme-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    .theme-preset-card {
+      background: #140e11;
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .theme-preset-card.active, .theme-preset-card:active {
+      border-color: #fff;
+      transform: scale(0.97);
+    }
+    .theme-circle {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    }
+    .theme-name {
+      font-size: 11px;
+      font-weight: 700;
+      color: #ced6e0;
+    }
+
+    .custom-color-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #140e11;
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .custom-color-row input[type="color"] {
+      border: none;
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      cursor: pointer;
+      background: transparent;
+    }
+
+    .toggle-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .toggle-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      background: #140e11;
+      padding: 10px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    .toggle-item input {
+      accent-color: var(--primary-color);
+      width: 18px;
+      height: 18px;
+    }
+
+    .modal-footer {
+      padding: 12px 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .save-btn {
+      background: var(--primary-color);
+      color: #fff;
+      border: none;
+      padding: 10px 24px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 0 15px var(--primary-glow);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==========================================
+       TELA DE BLOQUEIO VERTICAL (PORTRAIT GUARD)
+       ========================================== -->
+  <div id="rotate-device-overlay">
+    <div class="phone-icon-anim"></div>
+    <div class="rotate-title">Gire o celular na horizontal</div>
+    <div class="rotate-desc">
+      O controle requer o celular deitado (modo paisagem) para que todos os botões e pedais fiquem acessíveis na ponta dos dedos.
+    </div>
+    <button class="btn-fullscreen-landscape" id="btn-force-landscape">
+      <span>🔄</span> ENTRAR EM TELA CHEIA E GIRAR
+    </button>
+  </div>
+
+  <!-- BARRA DE MODO DE EDIÇÃO (DRAG & RESIZE) -->
+  <div id="edit-mode-bar">
+    <span>✏️ MODO EDIÇÃO: Arraste para mover | Toque para redimensionar ou excluir</span>
+    <div class="edit-bar-actions">
+      <button class="edit-bar-btn" id="btn-open-add-modal" style="background: #10b981; color: #fff;">➕ Adicionar Botão</button>
+      <button class="edit-bar-btn" id="btn-reset-positions">🔄 Resetar Tudo</button>
+      <button class="edit-bar-btn save" id="btn-exit-edit-mode">💾 Concluir</button>
+    </div>
+  </div>
+
+  <!-- INSPETOR FLUTUANTE DE REDIMENSIONAMENTO E EXCLUSÃO -->
+  <div id="edit-inspector-bar">
+    <span id="inspector-item-name">Controle</span>
+    <div class="inspector-slider-box">
+      <span>Tamanho:</span>
+      <input type="range" id="inspector-scale-slider" min="50" max="180" value="100">
+      <span id="inspector-scale-val">100%</span>
+    </div>
+    <button class="edit-bar-btn" id="btn-inspector-reset-item" style="padding: 5px 10px;">Resetar</button>
+    <button class="edit-bar-btn" id="btn-inspector-delete-item" style="background: #eb2f06; color: #fff; padding: 5px 10px;">🗑️ Excluir</button>
+  </div>
+
+  <!-- MODAL DE ADICIONAR / RESTAURAR CONTROLES EXCLUÍDOS -->
+  <div id="add-control-modal" style="display:none; position:fixed; inset:0; background:rgba(10,8,9,0.94); z-index:2100; align-items:center; justify-content:center; padding:16px;">
+    <div class="modal-sheet" style="max-width: 460px; max-height: 85vh;">
+      <div class="modal-header">
+        <div class="modal-title">Adicionar / Restaurar Controles ➕</div>
+        <div style="cursor: pointer; font-size: 20px;" id="close-add-modal">✕</div>
+      </div>
+      <div style="padding: 14px 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 10px;" id="add-control-list">
+        <!-- Itens preenchidos via JS -->
+      </div>
+      <div class="modal-footer" style="justify-content: flex-end;">
+        <button class="save-btn" id="btn-close-add-modal" style="padding: 8px 18px;">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BARRA SUPERIOR -->
+  <div id="top-nav">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <div class="mode-tabs">
+        <div class="mode-tab active" id="tab-gamepad">🎮 Gamepad</div>
+        <div class="mode-tab" id="tab-wheel">🏎️ Volante</div>
+      </div>
+
+      <!-- Alternador de Destino: PC (Wi-Fi) vs TV (Bluetooth) -->
+      <div class="conn-mode-tabs" id="conn-mode-selector">
+        <div class="conn-tab active" id="conn-tab-wifi" title="Conectar no PC via Wi-Fi">📡 PC Wi-Fi</div>
+        <div class="conn-tab" id="conn-tab-bt" title="Conectar na Smart TV Samsung / TVBox via Bluetooth">📶 TV Bluetooth</div>
+      </div>
+    </div>
+
+    <div class="top-actions">
+      <div class="status-badge" id="btn-status-badge" style="cursor: pointer;" title="Ver detalhes da conexão">
+        <span class="status-dot" id="status-dot"></span>
+        <span id="status-text">Conectando...</span>
+      </div>
+      <div class="icon-btn" id="btn-enter-edit-mode" title="Editar Posição e Tamanho dos Controles">✏️</div>
+      <div class="icon-btn" id="btn-fullscreen" title="Tela Cheia">⛶</div>
+      <div class="icon-btn" id="btn-edit-layout" title="Configurações e Estética">⚙️</div>
+    </div>
+  </div>
+
+  <!-- MODAL DE CONEXÃO BLUETOOTH (SMART TV SAMSUNG / TVBOX) -->
+  <div id="bt-modal" style="display:none; position:fixed; inset:0; background:rgba(10,8,9,0.95); z-index:2200; align-items:center; justify-content:center; padding:16px;">
+    <div class="modal-sheet" style="max-width: 480px;">
+      <div class="modal-header">
+        <div class="modal-title">Conectar na TV (Bluetooth HID) 📶</div>
+        <div style="cursor: pointer; font-size: 20px;" id="close-bt-modal">✕</div>
+      </div>
+      <div style="padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; font-size: 13px; line-height: 1.4;">
+        <div style="background: rgba(9, 132, 227, 0.15); border: 1px solid rgba(9, 132, 227, 0.4); padding: 12px; border-radius: 12px; color: #74b9ff;">
+          💡 <b>Sem instalar nada na TV!</b> O celular se transforma em um controle de verdade compatível com <b>Smart TV Samsung (Tizen)</b> e <b>TVBox (Android)</b>.
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <b>Passo a passo para parear:</b>
+          <div style="color: #cbd5e1;">1. Toque no botão verde abaixo para tornar este celular visível.</div>
+          <div style="color: #cbd5e1;">2. Na TV Samsung, acesse: <b>Menu ⚙️ -> Conexões -> Dispositivos Externos -> Gerenciador de Dispositivos -> Controle Bluetooth</b> (ou Bluetooth na TVBox).</div>
+          <div style="color: #cbd5e1;">3. Selecione <b>"Remote Gamepad"</b> na lista da TV e confirme!</div>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; background: #140e11; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
+          <span>Status Bluetooth:</span>
+          <span id="bt-status-label" style="font-weight: 800; color: #f9ca24;">⚪ Aguardando Pareamento</span>
+        </div>
+
+        <button class="save-btn" id="btn-trigger-bt-discoverable" style="background: #10ac84; padding: 12px; font-size: 14px; border: none; border-radius: 12px; cursor: pointer;">
+          📶 TORNAR CELULAR VISÍVEL NA TV (PAREAR)
+        </button>
+      </div>
+      <div class="modal-footer" style="justify-content: flex-end;">
+        <button class="edit-bar-btn" id="btn-close-bt-modal" style="padding: 8px 20px;">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="https-banner">
+    ⚠️ Acelerômetro requer HTTPS. <a id="https-link" href="#">Abrir via HTTPS</a>
+  </div>
+
+  <!-- ==========================================
+       MODO 1: GAMEPAD ESTILO XBOX
+       ========================================== -->
+  <div class="view-container active" id="gamepad-view">
+    <div class="gamepad-stage">
+      <!-- Asa Esquerda -->
+      <div class="wing left-wing">
+        <div class="triggers-row customizable-ctrl" id="ctrl-gp-triggers-l" data-ctrl-id="gp-triggers-l" data-name="Gatilhos Esquerdos (LT/LB)">
+          <div class="gp-btn btn-trigger-lg" id="btn-lt">LT</div>
+          <div class="gp-btn btn-bumper-md" id="btn-lb">LB</div>
+        </div>
+
+        <div class="wing-bottom-row">
+          <!-- D-Pad -->
+          <div id="dpad-container" class="customizable-ctrl" data-ctrl-id="gp-dpad" data-name="D-Pad Direcional">
+            <div class="dpad-arrow" id="dpad-up">▲</div>
+            <div class="dpad-arrow" id="dpad-down">▼</div>
+            <div class="dpad-arrow" id="dpad-left">◀</div>
+            <div class="dpad-arrow" id="dpad-right">▶</div>
+          </div>
+
+          <!-- Analógico Esquerdo -->
+          <div class="stick-base customizable-ctrl" id="left-stick" data-ctrl-id="gp-lstick" data-name="Analógico Esquerdo (LS)">
+            <div class="stick-knob" id="left-stick-knob"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Centro -->
+      <div class="center-column customizable-ctrl" id="ctrl-gp-center" data-ctrl-id="gp-center" data-name="Controles Centrais">
+        <div class="gp-btn center-top-x" id="btn-center-switch" title="Alternar Modo">✕</div>
+        
+        <div class="center-mid-row">
+          <div class="gp-btn center-nav-btn" id="btn-select" title="Select / Back">⧉</div>
+          <div class="gp-btn center-home-btn" id="btn-guide" title="Botão Home / Steam / Xbox Guide">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" />
+              <path d="M 7 7 C 9.5 11 11 15 12 18 C 13 15 14.5 11 17 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+              <path d="M 6.5 11 C 9 13 11 14.5 12 14.5 C 13 14.5 15 13 17.5 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </div>
+          <div class="gp-btn center-nav-btn" id="btn-start" title="Start / Menu">☰</div>
+        </div>
+
+        <div class="center-bot-row">
+          <div class="gp-btn stick-click-btn" id="btn-l3">Left<br>Stick</div>
+          <div class="gp-btn stick-click-btn" id="btn-r3">Right<br>Stick</div>
+        </div>
+      </div>
+
+      <!-- Asa Direita -->
+      <div class="wing right-wing">
+        <div class="triggers-row right customizable-ctrl" id="ctrl-gp-triggers-r" data-ctrl-id="gp-triggers-r" data-name="Gatilhos Direitos (RT/RB)">
+          <div class="gp-btn btn-bumper-md" id="btn-rb">RB</div>
+          <div class="gp-btn btn-trigger-lg" id="btn-rt">RT</div>
+        </div>
+
+        <div class="wing-bottom-row">
+          <!-- Analógico Direito -->
+          <div class="stick-base customizable-ctrl" id="right-stick" data-ctrl-id="gp-rstick" data-name="Analógico Direito (RS)">
+            <div class="stick-knob" id="right-stick-knob"></div>
+          </div>
+
+          <!-- Diamante ABXY -->
+          <div id="abxy-container" class="customizable-ctrl" data-ctrl-id="gp-abxy" data-name="Botões A, B, X, Y">
+            <div class="gp-btn abxy-btn" id="btn-y">Y</div>
+            <div class="gp-btn abxy-btn" id="btn-x">X</div>
+            <div class="gp-btn abxy-btn" id="btn-b">B</div>
+            <div class="gp-btn abxy-btn" id="btn-a">A</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       MODO 2: VOLANTE DE CORRIDA (WHEEL)
+       ========================================== -->
+  <div class="view-container" id="wheel-view">
+    <!-- Coluna Esquerda: Freio / Ré -->
+    <div class="wheel-pedal-col" id="ctrl-wheel-left-col">
+      <div class="wheel-aux-btn customizable-ctrl" id="wheel-gear-down" data-ctrl-id="wheel-gear-down" data-name="⚙️ Marcha - (LB)">⚙️ LB (Marcha -)</div>
+      <div class="pedal-box customizable-ctrl" id="wheel-brake" data-ctrl-id="wheel-brake" data-name="🛑 Pedal Freio / Ré (LT)">
+        <span style="font-size: 20px;">FREIO</span>
+        <span style="font-size: 11px; opacity: 0.7;">LT / RÉ</span>
+      </div>
+      <div class="wheel-aux-btn customizable-ctrl" id="wheel-handbrake" data-ctrl-id="wheel-handbrake" data-name="🛑 Freio de Mão (A)" style="background: #2f1717; color: #ff6b6b;">🛑 FREIO DE MÃO (A)</div>
+    </div>
+
+    <!-- Centro: Volante SVG, Telemetria & Câmera/Pausa -->
+    <div class="wheel-center-area">
+      <div class="wheel-hud-bar customizable-ctrl" id="ctrl-wheel-hud" data-ctrl-id="wheel-hud" data-name="📊 HUD de Telemetria">
+        <div id="wheel-angle-txt">CENTRO 0°</div>
+        <div id="sensor-raw-info">Sensor: Aguardando...</div>
+        <div style="display: flex; gap: 6px;">
+          <button id="btn-invert-wheel" class="hud-mini-btn">🔄 Inverter</button>
+          <button id="btn-calibrate-wheel" class="hud-mini-btn">🎯 Centralizar</button>
+        </div>
+      </div>
+
+      <div class="wheel-box customizable-ctrl" id="ctrl-wheel-wheelbox" data-ctrl-id="wheel-box" data-name="🏎️ Volante Esportivo">
+        <svg id="wheel-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="100" cy="100" r="90" fill="none" stroke="#222834" stroke-width="16" />
+          <path d="M 94 10 A 90 90 0 0 1 106 10" fill="none" stroke="var(--accent-color)" stroke-width="17" />
+          <path d="M 18 100 L 75 100 L 78 120 L 22 115 Z" fill="#2d3442" />
+          <path d="M 182 100 L 125 100 L 122 120 L 178 115 Z" fill="#2d3442" />
+          <path d="M 93 125 L 90 182 L 110 182 L 107 125 Z" fill="#2d3442" />
+          <circle cx="100" cy="100" r="32" fill="#151b26" stroke="var(--primary-color)" stroke-width="3" />
+          <text x="100" y="105" text-anchor="middle" fill="var(--accent-color)" font-size="14" font-weight="900">RW</text>
+        </svg>
+      </div>
+
+      <!-- Barra de Controle Central (Câmera, Home & Pausa) -->
+      <div class="wheel-bottom-dash" id="ctrl-wheel-dash">
+        <div class="dash-btn customizable-ctrl" id="wheel-camera" data-ctrl-id="wheel-camera" data-name="🎥 Câmera (Y)">🎥 CÂMERA (Y)</div>
+        <div class="dash-btn customizable-ctrl" id="wheel-home" data-ctrl-id="wheel-home" data-name="⨂ Home / Steam (Guide)">⨂ HOME</div>
+        <div class="dash-btn customizable-ctrl" id="wheel-pause" data-ctrl-id="wheel-pause" data-name="⏸️ Pausa">⏸️ PAUSA</div>
+      </div>
+    </div>
+
+    <!-- Coluna Direita: Acelerador -->
+    <div class="wheel-pedal-col" id="ctrl-wheel-right-col">
+      <div class="wheel-aux-btn customizable-ctrl" id="wheel-gear-up" data-ctrl-id="wheel-gear-up" data-name="⚙️ Marcha + (RB)">⚙️ RB (Marcha +)</div>
+      <div class="pedal-box customizable-ctrl" id="wheel-gas" data-ctrl-id="wheel-gas" data-name="⚡ Pedal Acelerador (RT)">
+        <span style="font-size: 20px;">ACELERAR</span>
+        <span style="font-size: 11px; opacity: 0.7;">RT / GÁS</span>
+      </div>
+      <div class="wheel-aux-btn customizable-ctrl" id="wheel-nitro" data-ctrl-id="wheel-nitro" data-name="⚡ Nitro (X)" style="background: #2a142e; color: #d980fa;">⚡ NITRO (X)</div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       PAINEL GERAL DE CONFIGURAÇÕES (MODAL UNIFICADO)
+       ========================================== -->
+  <div id="edit-modal">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">Configurações & Estética ⚙️</div>
+        <div style="cursor: pointer; font-size: 20px;" id="close-edit-modal">✕</div>
+      </div>
+
+      <div class="config-nav">
+        <div class="config-nav-btn active" data-tab="tab-sens">🎛️ Sensibilidade</div>
+        <div class="config-nav-btn" data-tab="tab-theme">🎨 Temas & Cores</div>
+        <div class="config-nav-btn" data-tab="tab-buttons">🔘 Botões Visíveis</div>
+      </div>
+
+      <!-- ABA 1: SENSIBILIDADE -->
+      <div class="config-tab-content active" id="tab-sens">
+        <div class="slider-row">
+          <div class="slider-label-row">
+            <span>Sensibilidade do Volante (Ângulo Max)</span>
+            <span id="lbl-sens-angle">30°</span>
+          </div>
+          <input type="range" id="rng-sens-angle" min="15" max="60" value="30">
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-label-row">
+            <span>Zona Morta do Volante (Deadzone)</span>
+            <span id="lbl-sens-deadzone">2°</span>
+          </div>
+          <input type="range" id="rng-sens-deadzone" min="0" max="8" value="2">
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-label-row">
+            <span>Suavização de Resposta</span>
+            <span id="lbl-sens-smooth">Normal</span>
+          </div>
+          <input type="range" id="rng-sens-smooth" min="1" max="3" value="2">
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-label-row">
+            <span>Sensibilidade dos Analógicos (Gamepad)</span>
+            <span id="lbl-sens-sticks">100%</span>
+          </div>
+          <input type="range" id="rng-sens-sticks" min="50" max="150" value="100">
+        </div>
+
+        <label class="toggle-item" style="margin-top: 4px;">
+          <input type="checkbox" id="chk-invert-steer"> Inverter Direção do Volante
+        </label>
+
+        <!-- SEÇÃO DE FORCE FEEDBACK (VIBRAÇÃO DOS JOGOS) -->
+        <div style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 12px; padding-top: 12px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="font-size: 13px; font-weight: 700; color: var(--accent-color);">📳 Force Feedback (Vibração dos Jogos):</div>
+          <label class="toggle-item">
+            <input type="checkbox" id="chk-rumble-enabled" checked> Vibrar celular em batidas, zebras e derrapagens
+          </label>
+          <div class="slider-row">
+            <div class="slider-label-row">
+              <span>Intensidade da Vibração</span>
+              <span id="lbl-rumble-intensity">100%</span>
+            </div>
+            <input type="range" id="rng-rumble-intensity" min="20" max="150" value="100">
+          </div>
+          <button class="edit-bar-btn" id="btn-test-rumble" style="width: 100%; padding: 8px; background: #2f1717; color: #ff6b6b; border: 1px solid #ff4757; font-size: 12px;">
+            📳 Testar Vibração no Celular
+          </button>
+        </div>
+
+        <button class="save-btn" id="btn-open-edit-mode-from-modal" style="margin-top: 8px;">
+          ✏️ EDITAR POSIÇÃO E TAMANHO DOS CONTROLES
+        </button>
+
+        <a href="/RemoteWheel.apk" download="RemoteWheel.apk" style="text-decoration: none; margin-top: 6px;">
+          <button type="button" class="save-btn" style="width: 100%; background: #0984e3; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px;">
+            <span>📥</span> BAIXAR APK ANDROID (BLUETOOTH TV & PC)
+          </button>
+        </a>
+      </div>
+
+      <!-- ABA 2: TEMAS E CORES -->
+      <div class="config-tab-content" id="tab-theme">
+        <div style="font-size: 13px; font-weight: 700; color: #a09095;">Presets de Temas Esportivos:</div>
+        
+        <div class="theme-grid">
+          <div class="theme-preset-card" data-preset="crimson">
+            <div class="theme-circle" style="background: linear-gradient(135deg, #ff4757, #b71020);"></div>
+            <div class="theme-name">Crimson</div>
+          </div>
+          <div class="theme-preset-card" data-preset="cyber">
+            <div class="theme-circle" style="background: linear-gradient(135deg, #00f2fe, #0984e3);"></div>
+            <div class="theme-name">Cyber Cyan</div>
+          </div>
+          <div class="theme-preset-card" data-preset="emerald">
+            <div class="theme-circle" style="background: linear-gradient(135deg, #2ed573, #10ac84);"></div>
+            <div class="theme-name">Xbox Green</div>
+          </div>
+          <div class="theme-preset-card" data-preset="purple">
+            <div class="theme-circle" style="background: linear-gradient(135deg, #e056fd, #686de0);"></div>
+            <div class="theme-name">Vaporwave</div>
+          </div>
+          <div class="theme-preset-card" data-preset="yellow">
+            <div class="theme-circle" style="background: linear-gradient(135deg, #f9ca24, #f0932b);"></div>
+            <div class="theme-name">Racing Gold</div>
+          </div>
+          <div class="theme-preset-card" data-preset="orange">
+            <div class="theme-circle" style="background: linear-gradient(135deg, #ff793f, #cd6133);"></div>
+            <div class="theme-name">McLaren</div>
+          </div>
+          <div class="theme-preset-card" data-preset="stealth">
+            <div class="theme-circle" style="background: linear-gradient(135deg, #57606f, #2f3542);"></div>
+            <div class="theme-name">Stealth</div>
+          </div>
+          <div class="theme-preset-card" data-preset="hotpink">
+            <div class="theme-circle" style="background: linear-gradient(135deg, #ff3838, #ff9ff3);"></div>
+            <div class="theme-name">Neon Pink</div>
+          </div>
+        </div>
+
+        <div class="custom-color-row">
+          <span>Cor Primária Customizada:</span>
+          <input type="color" id="picker-custom-color" value="#b71020">
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-label-row">
+            <span>Intensidade do Brilho / Glow</span>
+            <span id="lbl-glow-val">70%</span>
+          </div>
+          <input type="range" id="rng-glow" min="0" max="100" value="70">
+        </div>
+      </div>
+
+      <!-- ABA 3: BOTÕES VISÍVEIS -->
+      <div class="config-tab-content" id="tab-buttons">
+        <p style="font-size: 12px; color: #a09095;">Marque ou desmarque os botões para adicionar ou remover da tela:</p>
+        
+        <div style="font-size: 13px; font-weight: 700; color: var(--accent-color); margin-top: 4px;">🎮 Controles do Gamepad:</div>
+        <div class="toggle-list">
+          <label class="toggle-item"><input type="checkbox" id="chk-lt-rt" checked> Gatilhos LT / RT</label>
+          <label class="toggle-item"><input type="checkbox" id="chk-lb-rb" checked> Bumpers LB / RB</label>
+          <label class="toggle-item"><input type="checkbox" id="chk-dpad" checked> D-Pad Direcional</label>
+          <label class="toggle-item"><input type="checkbox" id="chk-abxy" checked> Botões A, B, X, Y</label>
+          <label class="toggle-item"><input type="checkbox" id="chk-lstick" checked> Analógico Esquerdo</label>
+          <label class="toggle-item"><input type="checkbox" id="chk-rstick" checked> Analógico Direito</label>
+          <label class="toggle-item"><input type="checkbox" id="chk-center" checked> Botões Start / Select</label>
+          <label class="toggle-item"><input type="checkbox" id="chk-l3-r3" checked> Cliques L3 / R3</label>
+        </div>
+
+        <div style="font-size: 13px; font-weight: 700; color: var(--accent-color); margin-top: 10px;">🏎️ Controles do Volante:</div>
+        <div class="toggle-list">
+          <label class="toggle-item"><input type="checkbox" id="chk-wheel-nitro" checked> ⚡ Botão Nitro (X)</label>
+          <label class="toggle-item"><input type="checkbox" id="chk-wheel-handbrake" checked> 🛑 Freio de Mão (A)</label>
+          <label class="toggle-item"><input type="checkbox" id="chk-wheel-dash" checked> 🎥 Câmera (Y) & Pausa</label>
+          <label class="toggle-item"><input type="checkbox" id="chk-wheel-gears" checked> ⚙️ Marchas (LB / RB)</label>
+          <label class="toggle-item"><input type="checkbox" id="chk-wheel-hud" checked> 📊 Telemetria (Graus)</label>
+          <label class="toggle-item"><input type="checkbox" id="chk-wheel-box" checked> 🏎️ Volante SVG</label>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="save-btn" id="btn-save-layout">SALVAR & APLICAR</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- ESTADO GERAL ---
+    let currentMode = "gamepad";
+    let isEditMode = false;
+    let selectedCtrlElement = null;
+    let ws = null;
+
+    // Configurações Salvas
+    const config = {
+      maxAngle: 30,
+      deadzone: 2,
+      smoothFactor: 0.25,
+      stickSens: 1.0,
+      invertSteer: true,
+      theme: 'crimson',
+      customColor: '#b71020',
+      glow: 0.7,
+      rumbleEnabled: true,
+      rumbleIntensity: 1.0
+    };
+
+    // Layout Customizado (Posições e Escalas por controle)
+    let customLayouts = {};
+
+    const gpState = {
+      ls_x: 0, ls_y: 0,
+      rs_x: 0, rs_y: 0,
+      lt: 0, rt: 0,
+      btn_a: false, btn_b: false, btn_x: false, btn_y: false,
+      btn_lb: false, btn_rb: false,
+      btn_l3: false, btn_r3: false,
+      btn_start: false, btn_select: false,
+      btn_guide: false,
+      dpad_up: false, dpad_down: false, dpad_left: false, dpad_right: false
+    };
+
+    const wheelState = {
+      steer: 0,
+      gas: 0,
+      brake: 0,
+      handbrake: false,
+      nitro: false,
+      gear_up: false,
+      gear_down: false,
+      camera: false,
+      home: false,
+      pause: false,
+      calibratedOffset: 0
+    };
+
+    let smoothedSteer = 0;
+    let sensorActive = false;
+
+    // --- ELEMENTOS DO DOM ---
+    const tabGamepad = document.getElementById('tab-gamepad');
+    const tabWheel = document.getElementById('tab-wheel');
+    const gamepadView = document.getElementById('gamepad-view');
+    const wheelView = document.getElementById('wheel-view');
+    const statusDot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    const httpsBanner = document.getElementById('https-banner');
+    const httpsLink = document.getElementById('https-link');
+    const btnFullscreen = document.getElementById('btn-fullscreen');
+    const btnForceLandscape = document.getElementById('btn-force-landscape');
+    const btnCenterSwitch = document.getElementById('btn-center-switch');
+    const btnEditLayout = document.getElementById('btn-edit-layout');
+    const editModal = document.getElementById('edit-modal');
+    const closeEditModal = document.getElementById('close-edit-modal');
+    const btnSaveLayout = document.getElementById('btn-save-layout');
+
+    // Modo Edição & Inspetor & Adicionar/Excluir
+    const btnEnterEditMode = document.getElementById('btn-enter-edit-mode');
+    const btnOpenEditModeFromModal = document.getElementById('btn-open-edit-mode-from-modal');
+    const editModeBar = document.getElementById('edit-mode-bar');
+    const btnExitEditMode = document.getElementById('btn-exit-edit-mode');
+    const btnResetPositions = document.getElementById('btn-reset-positions');
+    const btnOpenAddModal = document.getElementById('btn-open-add-modal');
+    const addControlModal = document.getElementById('add-control-modal');
+    const closeAddModal = document.getElementById('close-add-modal');
+    const btnCloseAddModal = document.getElementById('btn-close-add-modal');
+    const addControlList = document.getElementById('add-control-list');
+    const editInspectorBar = document.getElementById('edit-inspector-bar');
+    const inspectorItemName = document.getElementById('inspector-item-name');
+    const inspectorScaleSlider = document.getElementById('inspector-scale-slider');
+    const inspectorScaleVal = document.getElementById('inspector-scale-val');
+    const btnInspectorResetItem = document.getElementById('btn-inspector-reset-item');
+    const btnInspectorDeleteItem = document.getElementById('btn-inspector-delete-item');
+
+    // Elementos do Volante
+    const wheelSvg = document.getElementById('wheel-svg');
+    const wheelAngleTxt = document.getElementById('wheel-angle-txt');
+    const sensorRawInfo = document.getElementById('sensor-raw-info');
+    const btnCalibrateWheel = document.getElementById('btn-calibrate-wheel');
+    const btnInvertWheel = document.getElementById('btn-invert-wheel');
+
+    // Sliders de Config
+    const rngSensAngle = document.getElementById('rng-sens-angle');
+    const lblSensAngle = document.getElementById('lbl-sens-angle');
+    const rngSensDeadzone = document.getElementById('rng-sens-deadzone');
+    const lblSensDeadzone = document.getElementById('lbl-sens-deadzone');
+    const rngSensSmooth = document.getElementById('rng-sens-smooth');
+    const lblSensSmooth = document.getElementById('lbl-sens-smooth');
+    const rngSensSticks = document.getElementById('rng-sens-sticks');
+    const lblSensSticks = document.getElementById('lbl-sens-sticks');
+    const chkInvertSteer = document.getElementById('chk-invert-steer');
+    const chkRumbleEnabled = document.getElementById('chk-rumble-enabled');
+    const rngRumbleIntensity = document.getElementById('rng-rumble-intensity');
+    const lblRumbleIntensity = document.getElementById('lbl-rumble-intensity');
+    const btnTestRumble = document.getElementById('btn-test-rumble');
+    const pickerCustomColor = document.getElementById('picker-custom-color');
+    const rngGlow = document.getElementById('rng-glow');
+    const lblGlowVal = document.getElementById('lbl-glow-val');
+
+    // --- TEMAS PRÉ-DEFINIDOS ---
+    const THEMES = {
+      crimson: { primary: '#b71020', dark: '#63050d', accent: '#ff4757', bg: '#120e10', knob: '#ffeded' },
+      cyber:   { primary: '#0984e3', dark: '#044c85', accent: '#00f2fe', bg: '#080f18', knob: '#e0f7fa' },
+      emerald: { primary: '#10ac84', dark: '#085743', accent: '#2ed573', bg: '#091510', knob: '#e8f8f5' },
+      purple:  { primary: '#8854d0', dark: '#48247a', accent: '#e056fd', bg: '#120a17', knob: '#f5eef8' },
+      yellow:  { primary: '#f0932b', dark: '#804c0f', accent: '#f9ca24', bg: '#15110a', knob: '#fef9e7' },
+      orange:  { primary: '#e55039', dark: '#752519', accent: '#ff793f', bg: '#170c09', knob: '#fbeee6' },
+      stealth: { primary: '#4b5563', dark: '#242a32', accent: '#9ca3af', bg: '#0f1115', knob: '#f3f4f6' },
+      hotpink: { primary: '#eb2f06', dark: '#751400', accent: '#ff9ff3', bg: '#140c11', knob: '#fce4ec' }
+    };
+
+    function applyTheme(themeKey, customHex = null) {
+      let t = THEMES[themeKey] || THEMES.crimson;
+      let primary = customHex || t.primary;
+      let dark = customHex ? darkenHex(primary, 40) : t.dark;
+      let accent = customHex ? lightenHex(primary, 30) : t.accent;
+      let bg = t.bg;
+      let knob = t.knob;
+
+      document.documentElement.style.setProperty('--primary-color', primary);
+      document.documentElement.style.setProperty('--primary-dark', dark);
+      document.documentElement.style.setProperty('--accent-color', accent);
+      document.documentElement.style.setProperty('--primary-glow', `rgba(${hexToRgb(primary)}, ${config.glow})`);
+      document.documentElement.style.setProperty('--bg-color', bg);
+      document.documentElement.style.setProperty('--stick-knob', knob);
+
+      document.querySelectorAll('.theme-preset-card').forEach(c => {
+        c.classList.toggle('active', c.dataset.preset === themeKey && !customHex);
+      });
+    }
+
+    function hexToRgb(hex) {
+      let c = hex.replace('#', '');
+      if (c.length === 3) c = c.split('').map(x => x + x).join('');
+      const num = parseInt(c, 16);
+      return `${(num >> 16) & 255}, ${(num >> 8) & 255}, ${num & 255}`;
+    }
+    function darkenHex(hex, percent) {
+      let [r, g, b] = hexToRgb(hex).split(',').map(Number);
+      r = Math.max(0, Math.floor(r * (1 - percent / 100)));
+      g = Math.max(0, Math.floor(g * (1 - percent / 100)));
+      b = Math.max(0, Math.floor(b * (1 - percent / 100)));
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+    function lightenHex(hex, percent) {
+      let [r, g, b] = hexToRgb(hex).split(',').map(Number);
+      r = Math.min(255, Math.floor(r + (255 - r) * (percent / 100)));
+      g = Math.min(255, Math.floor(g + (255 - g) * (percent / 100)));
+      b = Math.min(255, Math.floor(b + (255 - g) * (percent / 100)));
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    // Abas de Config
+    document.querySelectorAll('.config-nav-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.config-nav-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.config-tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    document.querySelectorAll('.theme-preset-card').forEach(card => {
+      card.addEventListener('click', () => {
+        config.theme = card.dataset.preset;
+        config.customColor = null;
+        applyTheme(config.theme);
+      });
+    });
+
+    pickerCustomColor.addEventListener('input', (e) => {
+      config.customColor = e.target.value;
+      applyTheme('custom', config.customColor);
+    });
+
+    rngGlow.addEventListener('input', (e) => {
+      config.glow = parseFloat((e.target.value / 100).toFixed(2));
+      lblGlowVal.textContent = `${e.target.value}%`;
+      applyTheme(config.customColor ? 'custom' : config.theme, config.customColor);
+    });
+
+    rngSensAngle.addEventListener('input', (e) => {
+      config.maxAngle = parseInt(e.target.value);
+      lblSensAngle.textContent = `${config.maxAngle}°`;
+    });
+    rngSensDeadzone.addEventListener('input', (e) => {
+      config.deadzone = parseInt(e.target.value);
+      lblSensDeadzone.textContent = `${config.deadzone}°`;
+    });
+    rngSensSmooth.addEventListener('input', (e) => {
+      const v = parseInt(e.target.value);
+      if (v === 1) { config.smoothFactor = 0.45; lblSensSmooth.textContent = "Rápido / Direto"; }
+      else if (v === 2) { config.smoothFactor = 0.25; lblSensSmooth.textContent = "Normal / Suave"; }
+      else { config.smoothFactor = 0.12; lblSensSmooth.textContent = "Ultra Estável"; }
+    });
+    rngSensSticks.addEventListener('input', (e) => {
+      config.stickSens = parseFloat((e.target.value / 100).toFixed(2));
+      lblSensSticks.textContent = `${e.target.value}%`;
+    });
+    chkInvertSteer.addEventListener('change', (e) => {
+      config.invertSteer = e.target.checked;
+      updateInvertBtnText();
+    });
+
+    chkRumbleEnabled.addEventListener('change', (e) => {
+      config.rumbleEnabled = e.target.checked;
+      saveAllSettings();
+    });
+    rngRumbleIntensity.addEventListener('input', (e) => {
+      config.rumbleIntensity = parseFloat((e.target.value / 100).toFixed(2));
+      lblRumbleIntensity.textContent = `${e.target.value}%`;
+      saveAllSettings();
+    });
+    btnTestRumble.addEventListener('click', () => {
+      if (navigator.vibrate) {
+        navigator.vibrate([70, 30, 120, 30, 80]);
+        triggerRumbleVfx(true);
+      } else {
+        alert("Vibração de hardware não detectada. Certifique-se de acessar por HTTPS no celular!");
+      }
+    });
+
+    function updateInvertBtnText() {
+      if (btnInvertWheel) {
+        btnInvertWheel.textContent = config.invertSteer ? "🔄 Invertido" : "🔄 Normal";
+      }
+      chkInvertSteer.checked = config.invertSteer;
+    }
+    btnInvertWheel.addEventListener('click', () => {
+      config.invertSteer = !config.invertSteer;
+      updateInvertBtnText();
+      saveAllSettings();
+      if (navigator.vibrate) navigator.vibrate(15);
+    });
+
+    // ============================================================
+    // SISTEMA DE ARRASTAR & REDIMENSIONAR CONTROLES (CUSTOM HUD)
+    // ============================================================
+    function setEditMode(active) {
+      isEditMode = active;
+      document.body.classList.toggle('is-editing', isEditMode);
+      editModeBar.style.display = isEditMode ? 'flex' : 'none';
+      if (!isEditMode) {
+        deselectControl();
+      }
+    }
+
+    btnEnterEditMode.addEventListener('click', () => setEditMode(true));
+    btnOpenEditModeFromModal.addEventListener('click', () => {
+      editModal.style.display = 'none';
+      setEditMode(true);
+    });
+    btnExitEditMode.addEventListener('click', () => {
+      setEditMode(false);
+      saveCustomLayouts();
+      if (navigator.vibrate) navigator.vibrate([15, 30]);
+    });
+
+    function selectControl(el) {
+      if (!isEditMode) return;
+      if (selectedCtrlElement) selectedCtrlElement.classList.remove('selected-ctrl');
+      selectedCtrlElement = el;
+      selectedCtrlElement.classList.add('selected-ctrl');
+
+      const ctrlId = el.dataset.ctrlId;
+      const ctrlName = el.dataset.name || "Controle";
+      inspectorItemName.textContent = ctrlName;
+
+      const itemData = customLayouts[ctrlId] || { x: 0, y: 0, scale: 1.0 };
+      inspectorScaleSlider.value = Math.round(itemData.scale * 100);
+      inspectorScaleVal.textContent = `${inspectorScaleSlider.value}%`;
+      editInspectorBar.style.display = 'flex';
+    }
+
+    function deselectControl() {
+      if (selectedCtrlElement) selectedCtrlElement.classList.remove('selected-ctrl');
+      selectedCtrlElement = null;
+      editInspectorBar.style.display = 'none';
+    }
+
+    inspectorScaleSlider.addEventListener('input', (e) => {
+      if (!selectedCtrlElement) return;
+      const ctrlId = selectedCtrlElement.dataset.ctrlId;
+      const scale = parseFloat((e.target.value / 100).toFixed(2));
+      inspectorScaleVal.textContent = `${e.target.value}%`;
+
+      if (!customLayouts[ctrlId]) customLayouts[ctrlId] = { x: 0, y: 0, scale: 1.0 };
+      customLayouts[ctrlId].scale = scale;
+      applyElementTransform(selectedCtrlElement, customLayouts[ctrlId]);
+    });
+
+    btnInspectorResetItem.addEventListener('click', () => {
+      if (!selectedCtrlElement) return;
+      const ctrlId = selectedCtrlElement.dataset.ctrlId;
+      delete customLayouts[ctrlId];
+      selectedCtrlElement.style.transform = '';
+      inspectorScaleSlider.value = 100;
+      inspectorScaleVal.textContent = '100%';
+      saveCustomLayouts();
+    });
+
+    // Excluir botão selecionado da tela
+    btnInspectorDeleteItem.addEventListener('click', () => {
+      if (!selectedCtrlElement) return;
+      const ctrlId = selectedCtrlElement.dataset.ctrlId;
+      if (!customLayouts[ctrlId]) customLayouts[ctrlId] = { x: 0, y: 0, scale: 1.0 };
+      customLayouts[ctrlId].hidden = true;
+      selectedCtrlElement.style.display = 'none';
+      deselectControl();
+      saveCustomLayouts();
+      if (navigator.vibrate) navigator.vibrate([20, 40]);
+    });
+
+    // Modal Adicionar / Restaurar Botões
+    function openAddControlModal() {
+      const activeContainer = currentMode === 'gamepad' ? gamepadView : wheelView;
+      const controls = activeContainer.querySelectorAll('.customizable-ctrl');
+
+      addControlList.innerHTML = '';
+
+      controls.forEach(ctrl => {
+        const ctrlId = ctrl.dataset.ctrlId;
+        const name = ctrl.dataset.name || "Controle";
+        const isHidden = customLayouts[ctrlId] && customLayouts[ctrlId].hidden === true;
+
+        const row = document.createElement('div');
+        row.className = 'add-control-card';
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.justifyContent = 'space-between';
+        row.style.background = '#140e11';
+        row.style.border = '1px solid rgba(255,255,255,0.1)';
+        row.style.borderRadius = '12px';
+        row.style.padding = '10px 14px';
+
+        const info = document.createElement('div');
+        info.style.display = 'flex';
+        info.style.flexDirection = 'column';
+        info.style.gap = '2px';
+
+        const title = document.createElement('span');
+        title.style.fontSize = '13px';
+        title.style.fontWeight = '700';
+        title.style.color = '#fff';
+        title.textContent = name;
+
+        const status = document.createElement('span');
+        status.style.fontSize = '11px';
+        status.style.fontWeight = '600';
+        status.style.color = isHidden ? '#ff4757' : '#2ed573';
+        status.textContent = isHidden ? '❌ Excluído / Oculto' : '✅ Visível na Tela';
+
+        info.appendChild(title);
+        info.appendChild(status);
+        row.appendChild(info);
+
+        const actionBtn = document.createElement('button');
+        actionBtn.className = 'edit-bar-btn';
+        actionBtn.style.padding = '6px 14px';
+        actionBtn.style.cursor = 'pointer';
+
+        if (isHidden) {
+          actionBtn.textContent = '➕ Adicionar';
+          actionBtn.style.background = '#10b981';
+          actionBtn.style.color = '#fff';
+          actionBtn.onclick = () => {
+            if (!customLayouts[ctrlId]) customLayouts[ctrlId] = { x: 0, y: 0, scale: 1.0 };
+            customLayouts[ctrlId].hidden = false;
+            ctrl.style.display = '';
+            applyElementTransform(ctrl, customLayouts[ctrlId]);
+            saveCustomLayouts();
+            addControlModal.style.display = 'none';
+            selectControl(ctrl);
+            if (navigator.vibrate) navigator.vibrate(20);
+          };
+        } else {
+          actionBtn.textContent = '🗑️ Excluir';
+          actionBtn.style.background = '#eb2f06';
+          actionBtn.style.color = '#fff';
+          actionBtn.onclick = () => {
+            if (!customLayouts[ctrlId]) customLayouts[ctrlId] = { x: 0, y: 0, scale: 1.0 };
+            customLayouts[ctrlId].hidden = true;
+            ctrl.style.display = 'none';
+            saveCustomLayouts();
+            if (selectedCtrlElement === ctrl) deselectControl();
+            openAddControlModal();
+            if (navigator.vibrate) navigator.vibrate(20);
+          };
+        }
+
+        row.appendChild(actionBtn);
+        addControlList.appendChild(row);
+      });
+
+      addControlModal.style.display = 'flex';
+    }
+
+    btnOpenAddModal.addEventListener('click', openAddControlModal);
+    closeAddModal.addEventListener('click', () => addControlModal.style.display = 'none');
+    btnCloseAddModal.addEventListener('click', () => addControlModal.style.display = 'none');
+
+    btnResetPositions.addEventListener('click', () => {
+      if (confirm("Deseja restaurar todas as posições, tamanhos e botões para o padrão?")) {
+        customLayouts = {};
+        localStorage.removeItem('rw_custom_layouts_v2');
+        document.querySelectorAll('.customizable-ctrl').forEach(el => {
+          el.style.transform = '';
+          el.style.display = '';
+        });
+        deselectControl();
+      }
+    });
+
+    function applyElementTransform(el, data) {
+      if (!data) return;
+      const x = data.x || 0;
+      const y = data.y || 0;
+      const scale = data.scale || 1.0;
+      el.style.transform = `translate3d(${x}px, ${y}px, 0px) scale(${scale})`;
+    }
+
+    function applyAllCustomLayouts() {
+      document.querySelectorAll('.customizable-ctrl').forEach(el => {
+        const id = el.dataset.ctrlId;
+        if (customLayouts[id]) {
+          if (customLayouts[id].hidden === true) {
+            el.style.display = 'none';
+          } else {
+            el.style.display = '';
+            applyElementTransform(el, customLayouts[id]);
+          }
+        } else {
+          el.style.display = '';
+        }
+      });
+    }
+
+    function saveCustomLayouts() {
+      localStorage.setItem('rw_custom_layouts_v2', JSON.stringify(customLayouts));
+    }
+
+    function loadCustomLayouts() {
+      const saved = localStorage.getItem('rw_custom_layouts_v2');
+      if (saved) {
+        try {
+          customLayouts = JSON.parse(saved);
+        } catch (e) {}
+      }
+      applyAllCustomLayouts();
+    }
+
+    // Dragging Handler em Modo Edição
+    document.querySelectorAll('.customizable-ctrl').forEach(ctrl => {
+      let isDragging = false;
+      let startX = 0, startY = 0;
+      let initX = 0, initY = 0;
+
+      ctrl.addEventListener('pointerdown', (e) => {
+        if (!isEditMode) return;
+        e.stopPropagation();
+        selectControl(ctrl);
+
+        isDragging = true;
+        ctrl.setPointerCapture(e.pointerId);
+
+        const ctrlId = ctrl.dataset.ctrlId;
+        const currentData = customLayouts[ctrlId] || { x: 0, y: 0, scale: 1.0 };
+        initX = currentData.x || 0;
+        initY = currentData.y || 0;
+        startX = e.clientX;
+        startY = e.clientY;
+      });
+
+      ctrl.addEventListener('pointermove', (e) => {
+        if (!isEditMode || !isDragging) return;
+        const ctrlId = ctrl.dataset.ctrlId;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+
+        if (!customLayouts[ctrlId]) customLayouts[ctrlId] = { x: 0, y: 0, scale: 1.0 };
+        customLayouts[ctrlId].x = Math.round(initX + dx);
+        customLayouts[ctrlId].y = Math.round(initY + dy);
+
+        applyElementTransform(ctrl, customLayouts[ctrlId]);
+      });
+
+      ctrl.addEventListener('pointerup', () => {
+        if (isDragging) {
+          isDragging = false;
+          saveCustomLayouts();
+        }
+      });
+      ctrl.addEventListener('pointercancel', () => { isDragging = false; });
+    });
+
+    // --- CARREGAR E SALVAR CONFIGURAÇÕES ---
+    function loadSettings() {
+      const saved = localStorage.getItem('rw_full_config');
+      if (saved) {
+        try {
+          Object.assign(config, JSON.parse(saved));
+        } catch (e) {}
+      }
+
+      rngSensAngle.value = config.maxAngle;
+      lblSensAngle.textContent = `${config.maxAngle}°`;
+      rngSensDeadzone.value = config.deadzone;
+      lblSensDeadzone.textContent = `${config.deadzone}°`;
+      rngSensSticks.value = Math.round(config.stickSens * 100);
+      lblSensSticks.textContent = `${rngSensSticks.value}%`;
+      rngGlow.value = Math.round(config.glow * 100);
+      lblGlowVal.textContent = `${rngGlow.value}%`;
+      chkInvertSteer.checked = config.invertSteer;
+      if (config.rumbleEnabled !== undefined) chkRumbleEnabled.checked = config.rumbleEnabled;
+      if (config.rumbleIntensity !== undefined) {
+        rngRumbleIntensity.value = Math.round(config.rumbleIntensity * 100);
+        lblRumbleIntensity.textContent = `${rngRumbleIntensity.value}%`;
+      }
+      if (config.customColor) pickerCustomColor.value = config.customColor;
+
+      updateInvertBtnText();
+      applyTheme(config.customColor ? 'custom' : config.theme, config.customColor);
+    }
+
+    function saveAllSettings() {
+      localStorage.setItem('rw_full_config', JSON.stringify(config));
+    }
+
+    // --- BLOQUEIO VERTICAL & HORIZONTAL ---
+    async function enterFullscreenLandscape() {
+      try {
+        if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        }
+        if (screen.orientation && screen.orientation.lock) {
+          await screen.orientation.lock('landscape');
+        }
+      } catch (e) {
+        console.log("Orientation / Fullscreen:", e);
+      }
+    }
+
+    btnForceLandscape.addEventListener('click', enterFullscreenLandscape);
+    btnFullscreen.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        enterFullscreenLandscape();
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    });
+
+    // --- HTTPS BANNER ---
+    const isHttps = location.protocol === 'https:';
+    if (!isHttps && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+      httpsBanner.style.display = 'block';
+      httpsLink.href = `https://${location.hostname}:8443`;
+      httpsLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        location.href = `https://${location.hostname}:8443`;
+      });
+    }
+
+    // --- MUDANÇA DE MODO ---
+    tabGamepad.addEventListener('click', () => setMode('gamepad'));
+    tabWheel.addEventListener('click', () => setMode('wheel'));
+    btnCenterSwitch.addEventListener('click', () => {
+      setMode(currentMode === 'gamepad' ? 'wheel' : 'gamepad');
+    });
+
+    function setMode(mode) {
+      currentMode = mode;
+      if (mode === 'gamepad') {
+        tabGamepad.classList.add('active');
+        tabWheel.classList.remove('active');
+        gamepadView.classList.add('active');
+        wheelView.classList.remove('active');
+      } else {
+        tabWheel.classList.add('active');
+        tabGamepad.classList.remove('active');
+        wheelView.classList.add('active');
+        gamepadView.classList.remove('active');
+        initSensor();
+      }
+    }
+
+    // --- WEBSOCKET DUAL & GERENCIADOR INTELIGENTE DE FORCE FEEDBACK ---
+    let lastRumbleTime = 0;
+    let continuousRumbleStart = 0;
+    let rumbleVfxTimer = null;
+    let zeroDebounceTimer = null;
+
+    let currentConnMode = "wifi"; // "wifi" ou "bluetooth"
+    const connTabWifi = document.getElementById('conn-tab-wifi');
+    const connTabBt = document.getElementById('conn-tab-bt');
+    const btModal = document.getElementById('bt-modal');
+    const closeBtModal = document.getElementById('close-bt-modal');
+    const btnCloseBtModal = document.getElementById('btn-close-bt-modal');
+    const btnTriggerBtDiscoverable = document.getElementById('btn-trigger-bt-discoverable');
+    const btStatusLabel = document.getElementById('bt-status-label');
+    const btnStatusBadge = document.getElementById('btn-status-badge');
+
+    function setConnectionMode(mode) {
+      currentConnMode = mode;
+      if (mode === "wifi") {
+        connTabWifi.classList.add('active');
+        connTabBt.classList.remove('active');
+        if (window.AndroidController) window.AndroidController.setConnectionMode("wifi");
+        statusText.textContent = (ws && ws.readyState === WebSocket.OPEN) ? "PC Online" : "Conectando PC...";
+        statusDot.className = "status-dot" + (ws && ws.readyState === WebSocket.OPEN ? " online" : "");
+      } else {
+        connTabBt.classList.add('active');
+        connTabWifi.classList.remove('active');
+        if (window.AndroidController) {
+          window.AndroidController.setConnectionMode("bluetooth");
+          const isConnected = window.AndroidController.isBluetoothConnected();
+          statusText.textContent = isConnected ? "TV Conectada" : "TV Pareamento";
+          statusDot.className = "status-dot" + (isConnected ? " online" : "");
+        } else {
+          statusText.textContent = "TV Bluetooth";
+        }
+      }
+    }
+
+    if (connTabWifi) connTabWifi.addEventListener('click', () => setConnectionMode("wifi"));
+    if (connTabBt) {
+      connTabBt.addEventListener('click', () => {
+        setConnectionMode("bluetooth");
+        btModal.style.display = 'flex';
+      });
+    }
+
+    if (btnStatusBadge) {
+      btnStatusBadge.addEventListener('click', () => {
+        if (currentConnMode === "bluetooth") {
+          btModal.style.display = 'flex';
+        }
+      });
+    }
+
+    if (closeBtModal) closeBtModal.addEventListener('click', () => btModal.style.display = 'none');
+    if (btnCloseBtModal) btnCloseBtModal.addEventListener('click', () => btModal.style.display = 'none');
+
+    if (btnTriggerBtDiscoverable) {
+      btnTriggerBtDiscoverable.addEventListener('click', () => {
+        if (window.AndroidController) {
+          window.AndroidController.makeBluetoothDiscoverable();
+          btStatusLabel.textContent = "🟡 Visível! Procure na TV Samsung / TVBox";
+          btStatusLabel.style.color = "#f9ca24";
+        } else {
+          alert("Para usar o Modo Bluetooth direto na TV, instale o APK RemoteWheel no celular!");
+        }
+      });
+    }
+
+    // Callbacks disparados pelo Android Nativo
+    window.onBluetoothStatusChanged = function(status, devName) {
+      if (status === "connected") {
+        btStatusLabel.textContent = "🟢 Conectado: " + (devName || "TV");
+        btStatusLabel.style.color = "#2ed573";
+        if (currentConnMode === "bluetooth") {
+          statusText.textContent = devName ? "TV: " + devName : "TV Conectada";
+          statusDot.className = "status-dot online";
+        }
+      } else if (status === "ready") {
+        btStatusLabel.textContent = "⚪ Pronto para parear";
+        btStatusLabel.style.color = "#74b9ff";
+        if (currentConnMode === "bluetooth") {
+          statusText.textContent = "TV Aguardando";
+          statusDot.className = "status-dot";
+        }
+      } else if (status === "connecting") {
+        btStatusLabel.textContent = "🟡 Conectando à TV...";
+        btStatusLabel.style.color = "#f9ca24";
+      } else {
+        btStatusLabel.textContent = "⚪ Desconectado da TV";
+        btStatusLabel.style.color = "#cbd5e1";
+        if (currentConnMode === "bluetooth") {
+          statusText.textContent = "TV Desconectada";
+          statusDot.className = "status-dot";
+        }
+      }
+    };
+
+    window.setAndroidBridgeActive = function(active) {
+      console.log("Ponte Android Ativa: " + active);
+    };
+
+    function triggerRumbleVfx(active) {
+      if (active) {
+        statusDot.classList.add('rumble-active');
+        clearTimeout(rumbleVfxTimer);
+        rumbleVfxTimer = setTimeout(() => {
+          statusDot.classList.remove('rumble-active');
+        }, 180);
+      } else {
+        statusDot.classList.remove('rumble-active');
+      }
+    }
+
+    function handleGameRumble(large, small) {
+      if (!config.rumbleEnabled) return;
+
+      const l = parseInt(large || 0);
+      const s = parseInt(small || 0);
+
+      // Se parou a vibração, faz um pequeno debounce de 40ms para não cortar pulsos de transição
+      if (l === 0 && s === 0) {
+        clearTimeout(zeroDebounceTimer);
+        zeroDebounceTimer = setTimeout(() => {
+          if (navigator.vibrate) navigator.vibrate(0);
+          continuousRumbleStart = 0;
+          triggerRumbleVfx(false);
+        }, 40);
+        return;
+      }
+
+      clearTimeout(zeroDebounceTimer);
+      const now = performance.now();
+
+      // Rastreia vibração contínua para evitar Thermal Throttling do hardware Android
+      if (!continuousRumbleStart) continuousRumbleStart = now;
+      if (now - continuousRumbleStart > 1800) {
+        // Pausa preventiva de 60ms para o atuador eletromagnético esfriar e o Android não bloquear
+        if (navigator.vibrate) navigator.vibrate(0);
+        continuousRumbleStart = now - 1200; // concede respiro térmico
+        return;
+      }
+
+      // Intervalo mínimo de ~70ms entre chamadas para manter ritmo estável sem sobrecarregar o HAL
+      if (now - lastRumbleTime < 70) return;
+      lastRumbleTime = now;
+
+      const intensity = config.rumbleIntensity || 1.0;
+
+      // Gera pulsos de ciclo de trabalho (duty cycle) com micro-pausas integradas
+      if (window.AndroidController) {
+        // Vibração nativa ultra precisa
+        const d = Math.round(50 * intensity);
+        window.AndroidController.vibrate(d);
+      } else if (navigator.vibrate) {
+        if (l > 140 && s > 140) {
+          const d = Math.round(50 * intensity);
+          navigator.vibrate([d, 25, Math.round(d * 0.8)]);
+        } else if (l > 80 || s > 80) {
+          const d = Math.round(40 * intensity);
+          navigator.vibrate([d, 30, Math.round(d * 0.7)]);
+        } else {
+          const d = Math.round(30 * intensity);
+          navigator.vibrate([d, 25]);
+        }
+      }
+
+      triggerRumbleVfx(true);
+    }
+
+    function connectWS() {
+      const serverHost = localStorage.getItem('rw_server_ip') || (location.hostname && location.hostname !== '' ? location.hostname : '192.168.1.101');
+      const protocol = isHttps ? 'wss:' : 'ws:';
+      const port = isHttps ? 8766 : 8765;
+      const url = `${protocol}//${serverHost}:${port}`;
+
+      if (currentConnMode === "wifi") {
+        statusText.textContent = "Conectando PC...";
+        statusDot.classList.remove('online');
+      }
+
+      ws = new WebSocket(url);
+
+      ws.onopen = () => {
+        if (currentConnMode === "wifi") {
+          statusText.textContent = "PC Online";
+          statusDot.classList.add('online');
+        }
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "rumble") {
+            handleGameRumble(data.large, data.small);
+          }
+        } catch (e) {}
+      };
+
+      ws.onclose = () => {
+        if (currentConnMode === "wifi") {
+          statusText.textContent = "Reconectando PC...";
+          statusDot.classList.remove('online');
+        }
+        setTimeout(connectWS, 1500);
+      };
+
+      ws.onerror = () => ws.close();
+    }
+
+    function networkLoop() {
+      if (!isEditMode) {
+        const payload = currentMode === "gamepad" 
+          ? { type: "gamepad_input", ...gpState } 
+          : { type: "input", ...wheelState };
+
+        if (currentConnMode === "bluetooth" && window.AndroidController) {
+          window.AndroidController.sendGamepadInput(JSON.stringify(payload));
+        } else if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify(payload));
+        }
+      }
+      requestAnimationFrame(networkLoop);
+    }
+
+    // --- JOYSTICKS ANALÓGICOS (MULTI-TOUCH) ---
+    function setupVirtualStick(baseId, knobId, onMove) {
+      const base = document.getElementById(baseId);
+      const knob = document.getElementById(knobId);
+      const maxRadius = 45;
+      let activeTouchId = null;
+
+      function handleTouch(touch) {
+        const rect = base.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+
+        let dx = touch.clientX - centerX;
+        let dy = touch.clientY - centerY;
+        const distance = Math.hypot(dx, dy);
+
+        if (distance > maxRadius) {
+          dx = (dx / distance) * maxRadius;
+          dy = (dy / distance) * maxRadius;
+        }
+
+        knob.style.transform = `translate(${dx}px, ${dy}px)`;
+
+        let normX = (dx / maxRadius) * config.stickSens;
+        let normY = (-dy / maxRadius) * config.stickSens;
+
+        normX = Math.max(-1.0, Math.min(1.0, parseFloat(normX.toFixed(3))));
+        normY = Math.max(-1.0, Math.min(1.0, parseFloat(normY.toFixed(3))));
+
+        onMove(normX, normY);
+      }
+
+      function reset() {
+        activeTouchId = null;
+        knob.style.transform = "translate(0px, 0px)";
+        onMove(0, 0);
+      }
+
+      base.addEventListener('touchstart', (e) => {
+        if (isEditMode) return;
+        e.preventDefault();
+        if (activeTouchId === null) {
+          const touch = e.changedTouches[0];
+          activeTouchId = touch.identifier;
+          handleTouch(touch);
+        }
+      }, { passive: false });
+
+      window.addEventListener('touchmove', (e) => {
+        if (isEditMode) return;
+        if (activeTouchId !== null) {
+          for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === activeTouchId) {
+              handleTouch(e.changedTouches[i]);
+              break;
+            }
+          }
+        }
+      }, { passive: false });
+
+      window.addEventListener('touchend', (e) => {
+        if (activeTouchId !== null) {
+          for (let i = 0; i < e.changedTouches.length; i++) {
+            if (e.changedTouches[i].identifier === activeTouchId) {
+              reset();
+              break;
+            }
+          }
+        }
+      });
+
+      window.addEventListener('touchcancel', (e) => {
+        if (activeTouchId !== null) reset();
+      });
+    }
+
+    setupVirtualStick('left-stick', 'left-stick-knob', (x, y) => {
+      gpState.ls_x = x;
+      gpState.ls_y = y;
+    });
+
+    setupVirtualStick('right-stick', 'right-stick-knob', (x, y) => {
+      gpState.rs_x = x;
+      gpState.rs_y = y;
+    });
+
+    // --- BINDING DOS BOTÕES ---
+    function bindBtn(elemId, onDown, onUp) {
+      const el = document.getElementById(elemId);
+      if (!el) return;
+
+      const down = (e) => {
+        if (isEditMode) return;
+        e.preventDefault();
+        el.classList.add('pressed');
+        if (navigator.vibrate) navigator.vibrate(12);
+        onDown();
+      };
+      const up = (e) => {
+        if (isEditMode) return;
+        e.preventDefault();
+        el.classList.remove('pressed');
+        onUp();
+      };
+
+      el.addEventListener('touchstart', down, { passive: false });
+      el.addEventListener('touchend', up, { passive: false });
+      el.addEventListener('touchcancel', up, { passive: false });
+      el.addEventListener('mousedown', down);
+      el.addEventListener('mouseup', up);
+      el.addEventListener('mouseleave', up);
+    }
+
+    bindBtn('btn-a', () => gpState.btn_a = true, () => gpState.btn_a = false);
+    bindBtn('btn-b', () => gpState.btn_b = true, () => gpState.btn_b = false);
+    bindBtn('btn-x', () => gpState.btn_x = true, () => gpState.btn_x = false);
+    bindBtn('btn-y', () => gpState.btn_y = true, () => gpState.btn_y = false);
+    bindBtn('btn-lt', () => gpState.lt = 1.0, () => gpState.lt = 0.0);
+    bindBtn('btn-rt', () => gpState.rt = 1.0, () => gpState.rt = 0.0);
+    bindBtn('btn-lb', () => gpState.btn_lb = true, () => gpState.btn_lb = false);
+    bindBtn('btn-rb', () => gpState.btn_rb = true, () => gpState.btn_rb = false);
+    bindBtn('dpad-up', () => gpState.dpad_up = true, () => gpState.dpad_up = false);
+    bindBtn('dpad-down', () => gpState.dpad_down = true, () => gpState.dpad_down = false);
+    bindBtn('dpad-left', () => gpState.dpad_left = true, () => gpState.dpad_left = false);
+    bindBtn('dpad-right', () => gpState.dpad_right = true, () => gpState.dpad_right = false);
+    bindBtn('btn-select', () => gpState.btn_select = true, () => gpState.btn_select = false);
+    bindBtn('btn-start', () => gpState.btn_start = true, () => gpState.btn_start = false);
+    bindBtn('btn-guide', () => gpState.btn_guide = true, () => gpState.btn_guide = false);
+    bindBtn('btn-l3', () => gpState.btn_l3 = true, () => gpState.btn_l3 = false);
+    bindBtn('btn-r3', () => gpState.btn_r3 = true, () => gpState.btn_r3 = false);
+
+    // Controles do Volante
+    bindBtn('wheel-gas', () => wheelState.gas = 1.0, () => wheelState.gas = 0.0);
+    bindBtn('wheel-brake', () => wheelState.brake = 1.0, () => wheelState.brake = 0.0);
+    bindBtn('wheel-handbrake', () => wheelState.handbrake = true, () => wheelState.handbrake = false);
+    bindBtn('wheel-nitro', () => wheelState.nitro = true, () => wheelState.nitro = false);
+    bindBtn('wheel-gear-up', () => wheelState.gear_up = true, () => wheelState.gear_up = false);
+    bindBtn('wheel-gear-down', () => wheelState.gear_down = true, () => wheelState.gear_down = false);
+    bindBtn('wheel-camera', () => wheelState.camera = true, () => wheelState.camera = false);
+    bindBtn('wheel-home', () => wheelState.home = true, () => wheelState.home = false);
+    bindBtn('wheel-pause', () => wheelState.pause = true, () => wheelState.pause = false);
+
+    btnCalibrateWheel.addEventListener('click', () => {
+      wheelState.calibratedOffset += smoothedSteer;
+      smoothedSteer = 0;
+      if (navigator.vibrate) navigator.vibrate([20, 50, 20]);
+    });
+
+    // --- SENSORES DO VOLANTE ---
+    function initSensor() {
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission().then(res => {
+          if (res === 'granted') {
+            window.addEventListener('deviceorientation', handleDeviceOrientation);
+          }
+        }).catch(() => {});
+      } else {
+        window.addEventListener('deviceorientation', handleDeviceOrientation);
+        window.addEventListener('devicemotion', handleDeviceMotion);
+      }
+    }
+
+    function handleDeviceOrientation(e) {
+      if (e.beta === null && e.gamma === null) return;
+      sensorActive = true;
+
+      let raw = 0;
+      const orient = window.orientation || (screen.orientation ? screen.orientation.angle : 0);
+
+      if (orient === 90) {
+        raw = -e.beta;
+      } else if (orient === -90 || orient === 270) {
+        raw = e.beta;
+      } else {
+        raw = e.gamma || e.beta || 0;
+      }
+
+      applySteeringAngle(raw);
+      sensorRawInfo.textContent = `Gyro: B=${Math.round(e.beta || 0)}° G=${Math.round(e.gamma || 0)}°`;
+    }
+
+    function handleDeviceMotion(e) {
+      if (sensorActive) return;
+      if (!e.accelerationIncludingGravity) return;
+
+      const acc = e.accelerationIncludingGravity;
+      const raw = (acc.x || 0) * 4;
+      applySteeringAngle(raw);
+      sensorRawInfo.textContent = `Accel: X=${(acc.x || 0).toFixed(1)}`;
+    }
+
+    function applySteeringAngle(raw) {
+      if (config.invertSteer) {
+        raw = -raw;
+      }
+      const angle = raw - wheelState.calibratedOffset;
+      smoothedSteer = smoothedSteer * (1 - config.smoothFactor) + angle * config.smoothFactor;
+
+      let steerVal = 0;
+      const absA = Math.abs(smoothedSteer);
+      if (absA > config.deadzone) {
+        steerVal = Math.min(1.0, (absA - config.deadzone) / (config.maxAngle - config.deadzone)) * Math.sign(smoothedSteer);
+      }
+
+      wheelState.steer = parseFloat(steerVal.toFixed(3));
+      wheelSvg.style.transform = `rotate(${smoothedSteer * 1.6}deg)`;
+
+      const pct = Math.round(wheelState.steer * 100);
+      if (pct < -2) wheelAngleTxt.textContent = `◀ ${Math.abs(pct)}%`;
+      else if (pct > 2) wheelAngleTxt.textContent = `${pct}% ▶`;
+      else wheelAngleTxt.textContent = "CENTRO 0°";
+    }
+
+    // --- MODAL DE CONFIGURAÇÕES & BOTÕES VISÍVEIS ---
+    btnEditLayout.addEventListener('click', () => editModal.style.display = 'flex');
+    closeEditModal.addEventListener('click', () => editModal.style.display = 'none');
+
+    const layoutToggles = [
+      { id: 'chk-lt-rt', selectors: ['#ctrl-gp-triggers-l', '#ctrl-gp-triggers-r'] },
+      { id: 'chk-lb-rb', selectors: ['#btn-lb', '#btn-rb'] },
+      { id: 'chk-dpad', selectors: ['#dpad-container'] },
+      { id: 'chk-abxy', selectors: ['#abxy-container'] },
+      { id: 'chk-lstick', selectors: ['#left-stick'] },
+      { id: 'chk-rstick', selectors: ['#right-stick'] },
+      { id: 'chk-center', selectors: ['#ctrl-gp-center'] },
+      { id: 'chk-l3-r3', selectors: ['#btn-l3', '#btn-r3'] },
+      { id: 'chk-wheel-nitro', selectors: ['#wheel-nitro'] },
+      { id: 'chk-wheel-handbrake', selectors: ['#wheel-handbrake'] },
+      { id: 'chk-wheel-dash', selectors: ['#ctrl-wheel-dash'] },
+      { id: 'chk-wheel-gears', selectors: ['#wheel-gear-down', '#wheel-gear-up'] },
+      { id: 'chk-wheel-hud', selectors: ['#ctrl-wheel-hud'] },
+      { id: 'chk-wheel-box', selectors: ['#ctrl-wheel-wheelbox'] },
+    ];
+
+    function applyLayoutPreferences() {
+      layoutToggles.forEach(item => {
+        const chk = document.getElementById(item.id);
+        const isVisible = chk.checked;
+        item.selectors.forEach(sel => {
+          const el = document.querySelector(sel);
+          if (el) el.style.display = isVisible ? '' : 'none';
+        });
+      });
+    }
+
+    function loadSavedLayout() {
+      const saved = localStorage.getItem('rw_layout_prefs');
+      if (saved) {
+        try {
+          const prefs = JSON.parse(saved);
+          layoutToggles.forEach(item => {
+            if (prefs[item.id] !== undefined) {
+              document.getElementById(item.id).checked = prefs[item.id];
+            }
+          });
+        } catch (e) {}
+      }
+      applyLayoutPreferences();
+    }
+
+    btnSaveLayout.addEventListener('click', () => {
+      const prefs = {};
+      layoutToggles.forEach(item => {
+        prefs[item.id] = document.getElementById(item.id).checked;
+      });
+      localStorage.setItem('rw_layout_prefs', JSON.stringify(prefs));
+      applyLayoutPreferences();
+      saveAllSettings();
+      editModal.style.display = 'none';
+      if (navigator.vibrate) navigator.vibrate(20);
+    });
+
+    // Inicialização
+    loadSettings();
+    loadSavedLayout();
+    loadCustomLayouts();
+    connectWS();
+    requestAnimationFrame(networkLoop);
+  </script>
+</body>
+</html>
