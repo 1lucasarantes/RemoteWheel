@@ -770,10 +770,10 @@
     .modal-sheet {
       background: var(--card-bg);
       border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 20px;
+      border-radius: 18px;
       max-width: 520px;
       width: 100%;
-      max-height: 90vh;
+      max-height: 96vh;
       display: flex;
       flex-direction: column;
       box-shadow: 0 10px 30px rgba(0,0,0,0.8);
@@ -1021,35 +1021,35 @@
   </div>
 
   <!-- MODAL DE CONEXÃO BLUETOOTH (SMART TV SAMSUNG / TVBOX) -->
-  <div id="bt-modal" style="display:none; position:fixed; inset:0; background:rgba(10,8,9,0.95); z-index:2200; align-items:center; justify-content:center; padding:16px;">
-    <div class="modal-sheet" style="max-width: 480px;">
-      <div class="modal-header">
-        <div class="modal-title">Conectar na TV (Bluetooth HID) 📶</div>
-        <div style="cursor: pointer; font-size: 20px;" id="close-bt-modal">✕</div>
+  <div id="bt-modal" style="display:none; position:fixed; inset:0; background:rgba(10,8,9,0.94); z-index:2200; align-items:center; justify-content:center; padding:8px 12px; overflow-y:auto;">
+    <div class="modal-sheet" style="max-width: 560px; max-height: 96vh; border-radius: 16px;">
+      <div class="modal-header" style="padding: 10px 16px;">
+        <div class="modal-title" style="font-size: 16px;">Conectar na TV (Bluetooth HID) 📶</div>
+        <div style="cursor: pointer; font-size: 20px; line-height: 1; padding: 4px;" id="close-bt-modal">✕</div>
       </div>
-      <div style="padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; font-size: 13px; line-height: 1.4;">
-        <div style="background: rgba(9, 132, 227, 0.15); border: 1px solid rgba(9, 132, 227, 0.4); padding: 12px; border-radius: 12px; color: #74b9ff;">
-          💡 <b>Sem instalar nada na TV!</b> O celular se transforma em um controle de verdade compatível com <b>Smart TV Samsung (Tizen)</b> e <b>TVBox (Android)</b>.
+      <div style="padding: 10px 16px; display: flex; flex-direction: column; gap: 8px; font-size: 12px; line-height: 1.35; overflow-y: auto; flex: 1; min-height: 0;">
+        <div style="background: rgba(9, 132, 227, 0.15); border: 1px solid rgba(9, 132, 227, 0.4); padding: 8px 12px; border-radius: 10px; color: #74b9ff; font-size: 11px;">
+          💡 <b>Sem instalar nada na TV!</b> O celular vira um controle físico real para <b>Smart TV Samsung (Tizen)</b> e <b>TVBox (Android)</b>.
         </div>
         
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-          <b>Passo a passo para parear:</b>
+        <div style="display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; background: rgba(255,255,255,0.03); padding: 8px 12px; border-radius: 10px;">
+          <b style="color: #fff;">Passo a passo para parear:</b>
           <div style="color: #cbd5e1;">1. Toque no botão verde abaixo para tornar este celular visível.</div>
-          <div style="color: #cbd5e1;">2. Na TV Samsung, acesse: <b>Menu ⚙️ -> Conexões -> Dispositivos Externos -> Gerenciador de Dispositivos -> Controle Bluetooth</b> (ou Bluetooth na TVBox).</div>
+          <div style="color: #cbd5e1;">2. Na TV Samsung: <b>Menu ⚙️ -> Conexões -> Disp. Externos -> Gerenciador de Dispositivos -> Controle Bluetooth</b> (ou Bluetooth na TVBox).</div>
           <div style="color: #cbd5e1;">3. Selecione <b>"Remote Gamepad"</b> na lista da TV e confirme!</div>
         </div>
 
-        <div style="display: flex; align-items: center; justify-content: space-between; background: #140e11; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1);">
-          <span>Status Bluetooth:</span>
-          <span id="bt-status-label" style="font-weight: 800; color: #f9ca24;">⚪ Aguardando Pareamento</span>
+        <div style="display: flex; align-items: center; justify-content: space-between; background: #140e11; padding: 8px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);">
+          <span style="font-size: 12px;">Status Bluetooth:</span>
+          <span id="bt-status-label" style="font-weight: 800; color: #f9ca24; font-size: 12px;">⚪ Pronto para parear</span>
         </div>
 
-        <button class="save-btn" id="btn-trigger-bt-discoverable" style="background: #10ac84; padding: 12px; font-size: 14px; border: none; border-radius: 12px; cursor: pointer;">
+        <button class="save-btn" id="btn-trigger-bt-discoverable" style="background: #10ac84; padding: 10px 14px; font-size: 13px; font-weight: 800; border: none; border-radius: 10px; cursor: pointer; color: #fff; width: 100%; box-shadow: 0 4px 12px rgba(16,172,132,0.3);">
           📶 TORNAR CELULAR VISÍVEL NA TV (PAREAR)
         </button>
       </div>
-      <div class="modal-footer" style="justify-content: flex-end;">
-        <button class="edit-bar-btn" id="btn-close-bt-modal" style="padding: 8px 20px;">Fechar</button>
+      <div class="modal-footer" style="padding: 8px 16px; border-top: 1px solid rgba(255,255,255,0.08); justify-content: flex-end;">
+        <button class="edit-bar-btn" id="btn-close-bt-modal" style="padding: 6px 18px; font-size: 12px;">Fechar</button>
       </div>
     </div>
   </div>
@@ -1924,15 +1924,25 @@
     });
 
     // --- HTTPS BANNER ---
+    const isInsideApp = !!window.AndroidController || location.protocol === 'file:' || location.href.startsWith('file:');
     const isHttps = location.protocol === 'https:';
-    if (!isHttps && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+    if (!isInsideApp && !isHttps && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1' && location.hostname !== '') {
       httpsBanner.style.display = 'block';
       httpsLink.href = `https://${location.hostname}:8443`;
       httpsLink.addEventListener('click', (e) => {
         e.preventDefault();
         location.href = `https://${location.hostname}:8443`;
       });
+    } else {
+      httpsBanner.style.display = 'none';
     }
+
+    // Se o acelerômetro já estiver funcionando perfeitamente, oculta o banner
+    window.addEventListener('deviceorientation', (e) => {
+      if (e.alpha !== null || e.beta !== null || e.gamma !== null) {
+        if (httpsBanner) httpsBanner.style.display = 'none';
+      }
+    }, { once: true });
 
     // --- MUDANÇA DE MODO ---
     tabGamepad.addEventListener('click', () => setMode('gamepad'));
