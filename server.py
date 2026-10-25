@@ -151,14 +151,36 @@ def start_http_servers(host, http_port, https_port, ssl_ctx):
 # --- GERENCIADOR DE CLIENTES E FORCE FEEDBACK (RUMBLE) ---
 connected_clients = set()
 asyncio_loop = None
+last_rumble_sent_time = 0.0
+last_rumble_values = (0, 0)
 
 
 def broadcast_rumble_sync(large_motor, small_motor):
-    """Encaminha o Force Feedback do jogo do driver ViGEmBus para os celulares conectados."""
-    global asyncio_loop, connected_clients
-    if asyncio_loop and asyncio_loop.is_running() and connected_clients:
+    """Encaminha o Force Feedback do jogo para os celulares com rate-limiting inteligente contra sobrecarga."""
+    global asyncio_loop, connected_clients, last_rumble_sent_time, last_rumble_values
+    if not (asyncio_loop and asyncio_loop.is_running() and connected_clients):
+        return
+
+    now = time.time()
+    l, s = int(large_motor), int(small_motor)
+
+    # Se parou de vibrar (ambos 0), envia imediatamente para encerrar
+    if l == 0 and s == 0:
+        if last_rumble_values != (0, 0):
+            last_rumble_values = (0, 0)
+            last_rumble_sent_time = now
+            asyncio_loop.call_soon_threadsafe(
+                lambda: asyncio.create_task(broadcast_rumble(0, 0))
+            )
+        return
+
+    # Limita envios contínuos a ~20 vezes/seg para proteger o motor térmico do smartphone
+    diff = max(abs(l - last_rumble_values[0]), abs(s - last_rumble_values[1]))
+    if (now - last_rumble_sent_time >= 0.05) or (diff >= 35):
+        last_rumble_values = (l, s)
+        last_rumble_sent_time = now
         asyncio_loop.call_soon_threadsafe(
-            lambda: asyncio.create_task(broadcast_rumble(large_motor, small_motor))
+            lambda: asyncio.create_task(broadcast_rumble(l, s))
         )
 
 

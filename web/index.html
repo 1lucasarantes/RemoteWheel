@@ -1887,9 +1887,11 @@
       }
     }
 
-    // --- WEBSOCKET DUAL & FORCE FEEDBACK RECEIVER ---
+    // --- WEBSOCKET DUAL & GERENCIADOR INTELIGENTE DE FORCE FEEDBACK ---
     let lastRumbleTime = 0;
+    let continuousRumbleStart = 0;
     let rumbleVfxTimer = null;
+    let zeroDebounceTimer = null;
 
     function triggerRumbleVfx(active) {
       if (active) {
@@ -1897,42 +1899,63 @@
         clearTimeout(rumbleVfxTimer);
         rumbleVfxTimer = setTimeout(() => {
           statusDot.classList.remove('rumble-active');
-        }, 150);
+        }, 180);
       } else {
         statusDot.classList.remove('rumble-active');
       }
     }
 
     function handleGameRumble(large, small) {
-      if (!config.rumbleEnabled) return;
+      if (!config.rumbleEnabled || !navigator.vibrate) return;
 
       const l = parseInt(large || 0);
       const s = parseInt(small || 0);
 
-      // Se ambos motores forem 0, encerra qualquer vibração em andamento
+      // Se parou a vibração, faz um pequeno debounce de 40ms para não cortar pulsos de transição
       if (l === 0 && s === 0) {
-        if (navigator.vibrate) navigator.vibrate(0);
-        triggerRumbleVfx(false);
+        clearTimeout(zeroDebounceTimer);
+        zeroDebounceTimer = setTimeout(() => {
+          navigator.vibrate(0);
+          continuousRumbleStart = 0;
+          triggerRumbleVfx(false);
+        }, 40);
         return;
       }
 
+      clearTimeout(zeroDebounceTimer);
       const now = performance.now();
-      // Throttle de ~45ms para sincronização com o motor de vibração do smartphone
-      if (now - lastRumbleTime < 45) return;
+
+      // Rastreia vibração contínua para evitar Thermal Throttling do hardware Android
+      if (!continuousRumbleStart) continuousRumbleStart = now;
+      if (now - continuousRumbleStart > 1800) {
+        // Pausa preventiva de 60ms para o atuador eletromagnético esfriar e o Android não bloquear
+        navigator.vibrate(0);
+        continuousRumbleStart = now - 1200; // concede respiro térmico
+        return;
+      }
+
+      // Intervalo mínimo de ~70ms entre chamadas para manter ritmo estável sem sobrecarregar o HAL
+      if (now - lastRumbleTime < 70) return;
       lastRumbleTime = now;
 
       const intensity = config.rumbleIntensity || 1.0;
-      const combined = Math.max(l, s);
-      const duration = Math.min(130, Math.max(25, Math.round((combined / 255) * 80 * intensity)));
 
-      if (navigator.vibrate) {
-        if (l > 120 && s > 120) {
-          // Colisão forte ou zebra pesada: padrão duplo impactante
-          navigator.vibrate([duration, 15, Math.round(duration * 0.7)]);
-        } else {
-          navigator.vibrate(duration);
-        }
+      // Gera pulsos de ciclo de trabalho (duty cycle) com micro-pausas integradas:
+      // Dá textura mecânica real (parece motor roncando / asfalto) e não satura o motor!
+      if (l > 140 && s > 140) {
+        // Grande impacto (colisão, explosão ou zebra alta)
+        const d = Math.round(50 * intensity);
+        navigator.vibrate([d, 25, Math.round(d * 0.8)]);
+      } else if (l > 80 || s > 80) {
+        // Vibração média (curva no limite de aderência, arrancada)
+        const d = Math.round(40 * intensity);
+        navigator.vibrate([d, 30, Math.round(d * 0.7)]);
+      } else {
+        // Vibração sutil (asfalto rugoso, rotação de marcha)
+        const d = Math.round(30 * intensity);
+        navigator.vibrate([d, 25]);
       }
+
       triggerRumbleVfx(true);
     }
 
