@@ -1,0 +1,5 @@
+websockets>=12.0
+cryptography>=42.0.0
+pynput>=1.7.6
+qrcode>=7.4.2
+vgamepad>=0.1.0; sys_platform == 'win32'
