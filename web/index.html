@@ -922,14 +922,15 @@
 
   <!-- BARRA DE MODO DE EDIÇÃO (DRAG & RESIZE) -->
   <div id="edit-mode-bar">
-    <span>✏️ MODO EDIÇÃO: Arraste para mover | Toque para redimensionar</span>
+    <span>✏️ MODO EDIÇÃO: Arraste para mover | Toque para redimensionar ou excluir</span>
     <div class="edit-bar-actions">
-      <button class="edit-bar-btn" id="btn-reset-positions">🔄 Resetar Posições</button>
+      <button class="edit-bar-btn" id="btn-open-add-modal" style="background: #10b981; color: #fff;">➕ Adicionar Botão</button>
+      <button class="edit-bar-btn" id="btn-reset-positions">🔄 Resetar Tudo</button>
       <button class="edit-bar-btn save" id="btn-exit-edit-mode">💾 Concluir</button>
     </div>
   </div>
 
-  <!-- INSPETOR FLUTUANTE DE REDIMENSIONAMENTO -->
+  <!-- INSPETOR FLUTUANTE DE REDIMENSIONAMENTO E EXCLUSÃO -->
   <div id="edit-inspector-bar">
     <span id="inspector-item-name">Controle</span>
     <div class="inspector-slider-box">
@@ -937,7 +938,24 @@
       <input type="range" id="inspector-scale-slider" min="50" max="180" value="100">
       <span id="inspector-scale-val">100%</span>
     </div>
-    <button class="edit-bar-btn" id="btn-inspector-reset-item" style="padding: 4px 8px;">Resetar</button>
+    <button class="edit-bar-btn" id="btn-inspector-reset-item" style="padding: 5px 10px;">Resetar</button>
+    <button class="edit-bar-btn" id="btn-inspector-delete-item" style="background: #eb2f06; color: #fff; padding: 5px 10px;">🗑️ Excluir</button>
+  </div>
+
+  <!-- MODAL DE ADICIONAR / RESTAURAR CONTROLES EXCLUÍDOS -->
+  <div id="add-control-modal" style="display:none; position:fixed; inset:0; background:rgba(10,8,9,0.94); z-index:2100; align-items:center; justify-content:center; padding:16px;">
+    <div class="modal-sheet" style="max-width: 460px; max-height: 85vh;">
+      <div class="modal-header">
+        <div class="modal-title">Adicionar / Restaurar Controles ➕</div>
+        <div style="cursor: pointer; font-size: 20px;" id="close-add-modal">✕</div>
+      </div>
+      <div style="padding: 14px 20px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 10px;" id="add-control-list">
+        <!-- Itens preenchidos via JS -->
+      </div>
+      <div class="modal-footer" style="justify-content: flex-end;">
+        <button class="save-btn" id="btn-close-add-modal" style="padding: 8px 18px;">Fechar</button>
+      </div>
+    </div>
   </div>
 
   <!-- BARRA SUPERIOR -->
@@ -1036,18 +1054,18 @@
        ========================================== -->
   <div class="view-container" id="wheel-view">
     <!-- Coluna Esquerda: Freio / Ré -->
-    <div class="wheel-pedal-col customizable-ctrl" id="ctrl-wheel-left-col" data-ctrl-id="wheel-left-col" data-name="Coluna de Freio">
-      <div class="wheel-aux-btn" id="wheel-gear-down">⚙️ LB (Marcha -)</div>
-      <div class="pedal-box" id="wheel-brake">
+    <div class="wheel-pedal-col" id="ctrl-wheel-left-col">
+      <div class="wheel-aux-btn customizable-ctrl" id="wheel-gear-down" data-ctrl-id="wheel-gear-down" data-name="⚙️ Marcha - (LB)">⚙️ LB (Marcha -)</div>
+      <div class="pedal-box customizable-ctrl" id="wheel-brake" data-ctrl-id="wheel-brake" data-name="🛑 Pedal Freio / Ré (LT)">
         <span style="font-size: 20px;">FREIO</span>
         <span style="font-size: 11px; opacity: 0.7;">LT / RÉ</span>
       </div>
-      <div class="wheel-aux-btn" id="wheel-handbrake" style="background: #2f1717; color: #ff6b6b;">🛑 FREIO DE MÃO (A)</div>
+      <div class="wheel-aux-btn customizable-ctrl" id="wheel-handbrake" data-ctrl-id="wheel-handbrake" data-name="🛑 Freio de Mão (A)" style="background: #2f1717; color: #ff6b6b;">🛑 FREIO DE MÃO (A)</div>
     </div>
 
     <!-- Centro: Volante SVG, Telemetria & Câmera/Pausa -->
     <div class="wheel-center-area">
-      <div class="wheel-hud-bar customizable-ctrl" id="ctrl-wheel-hud" data-ctrl-id="wheel-hud" data-name="HUD de Telemetria">
+      <div class="wheel-hud-bar customizable-ctrl" id="ctrl-wheel-hud" data-ctrl-id="wheel-hud" data-name="📊 HUD de Telemetria">
         <div id="wheel-angle-txt">CENTRO 0°</div>
         <div id="sensor-raw-info">Sensor: Aguardando...</div>
         <div style="display: flex; gap: 6px;">
@@ -1056,7 +1074,7 @@
         </div>
       </div>
 
-      <div class="wheel-box customizable-ctrl" id="ctrl-wheel-wheelbox" data-ctrl-id="wheel-box" data-name="Volante Esportivo">
+      <div class="wheel-box customizable-ctrl" id="ctrl-wheel-wheelbox" data-ctrl-id="wheel-box" data-name="🏎️ Volante Esportivo">
         <svg id="wheel-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
           <circle cx="100" cy="100" r="90" fill="none" stroke="#222834" stroke-width="16" />
           <path d="M 94 10 A 90 90 0 0 1 106 10" fill="none" stroke="var(--accent-color)" stroke-width="17" />
@@ -1069,20 +1087,20 @@
       </div>
 
       <!-- Barra de Controle Central (Câmera & Pausa) -->
-      <div class="wheel-bottom-dash customizable-ctrl" id="ctrl-wheel-dash" data-ctrl-id="wheel-dash" data-name="Painel Câmera & Pausa">
-        <div class="dash-btn" id="wheel-camera">🎥 CÂMERA (Y)</div>
-        <div class="dash-btn" id="wheel-pause">⏸️ PAUSA</div>
+      <div class="wheel-bottom-dash" id="ctrl-wheel-dash">
+        <div class="dash-btn customizable-ctrl" id="wheel-camera" data-ctrl-id="wheel-camera" data-name="🎥 Câmera (Y)">🎥 CÂMERA (Y)</div>
+        <div class="dash-btn customizable-ctrl" id="wheel-pause" data-ctrl-id="wheel-pause" data-name="⏸️ Pausa">⏸️ PAUSA</div>
       </div>
     </div>
 
     <!-- Coluna Direita: Acelerador -->
-    <div class="wheel-pedal-col customizable-ctrl" id="ctrl-wheel-right-col" data-ctrl-id="wheel-right-col" data-name="Coluna de Aceleração">
-      <div class="wheel-aux-btn" id="wheel-gear-up">⚙️ RB (Marcha +)</div>
-      <div class="pedal-box" id="wheel-gas">
+    <div class="wheel-pedal-col" id="ctrl-wheel-right-col">
+      <div class="wheel-aux-btn customizable-ctrl" id="wheel-gear-up" data-ctrl-id="wheel-gear-up" data-name="⚙️ Marcha + (RB)">⚙️ RB (Marcha +)</div>
+      <div class="pedal-box customizable-ctrl" id="wheel-gas" data-ctrl-id="wheel-gas" data-name="⚡ Pedal Acelerador (RT)">
         <span style="font-size: 20px;">ACELERAR</span>
         <span style="font-size: 11px; opacity: 0.7;">RT / GÁS</span>
       </div>
-      <div class="wheel-aux-btn" id="wheel-nitro" style="background: #2a142e; color: #d980fa;">⚡ NITRO (X)</div>
+      <div class="wheel-aux-btn customizable-ctrl" id="wheel-nitro" data-ctrl-id="wheel-nitro" data-name="⚡ Nitro (X)" style="background: #2a142e; color: #d980fa;">⚡ NITRO (X)</div>
     </div>
   </div>
 
@@ -1202,6 +1220,7 @@
       <div class="config-tab-content" id="tab-buttons">
         <p style="font-size: 12px; color: #a09095;">Marque ou desmarque os botões para adicionar ou remover da tela:</p>
         
+        <div style="font-size: 13px; font-weight: 700; color: var(--accent-color); margin-top: 4px;">🎮 Controles do Gamepad:</div>
         <div class="toggle-list">
           <label class="toggle-item"><input type="checkbox" id="chk-lt-rt" checked> Gatilhos LT / RT</label>
           <label class="toggle-item"><input type="checkbox" id="chk-lb-rb" checked> Bumpers LB / RB</label>
@@ -1211,6 +1230,16 @@
           <label class="toggle-item"><input type="checkbox" id="chk-rstick" checked> Analógico Direito</label>
           <label class="toggle-item"><input type="checkbox" id="chk-center" checked> Botões Start / Select</label>
           <label class="toggle-item"><input type="checkbox" id="chk-l3-r3" checked> Cliques L3 / R3</label>
+        </div>
+
+        <div style="font-size: 13px; font-weight: 700; color: var(--accent-color); margin-top: 10px;">🏎️ Controles do Volante:</div>
+        <div class="toggle-list">
+          <label class="toggle-item"><input type="checkbox" id="chk-wheel-nitro" checked> ⚡ Botão Nitro (X)</label>
+          <label class="toggle-item"><input type="checkbox" id="chk-wheel-handbrake" checked> 🛑 Freio de Mão (A)</label>
+          <label class="toggle-item"><input type="checkbox" id="chk-wheel-dash" checked> 🎥 Câmera (Y) & Pausa</label>
+          <label class="toggle-item"><input type="checkbox" id="chk-wheel-gears" checked> ⚙️ Marchas (LB / RB)</label>
+          <label class="toggle-item"><input type="checkbox" id="chk-wheel-hud" checked> 📊 Telemetria (Graus)</label>
+          <label class="toggle-item"><input type="checkbox" id="chk-wheel-box" checked> 🏎️ Volante SVG</label>
         </div>
       </div>
 
@@ -1286,17 +1315,23 @@
     const closeEditModal = document.getElementById('close-edit-modal');
     const btnSaveLayout = document.getElementById('btn-save-layout');
 
-    // Modo Edição & Inspetor
+    // Modo Edição & Inspetor & Adicionar/Excluir
     const btnEnterEditMode = document.getElementById('btn-enter-edit-mode');
     const btnOpenEditModeFromModal = document.getElementById('btn-open-edit-mode-from-modal');
     const editModeBar = document.getElementById('edit-mode-bar');
     const btnExitEditMode = document.getElementById('btn-exit-edit-mode');
     const btnResetPositions = document.getElementById('btn-reset-positions');
+    const btnOpenAddModal = document.getElementById('btn-open-add-modal');
+    const addControlModal = document.getElementById('add-control-modal');
+    const closeAddModal = document.getElementById('close-add-modal');
+    const btnCloseAddModal = document.getElementById('btn-close-add-modal');
+    const addControlList = document.getElementById('add-control-list');
     const editInspectorBar = document.getElementById('edit-inspector-bar');
     const inspectorItemName = document.getElementById('inspector-item-name');
     const inspectorScaleSlider = document.getElementById('inspector-scale-slider');
     const inspectorScaleVal = document.getElementById('inspector-scale-val');
     const btnInspectorResetItem = document.getElementById('btn-inspector-reset-item');
+    const btnInspectorDeleteItem = document.getElementById('btn-inspector-delete-item');
 
     // Elementos do Volante
     const wheelSvg = document.getElementById('wheel-svg');
@@ -1500,14 +1535,116 @@
       selectedCtrlElement.style.transform = '';
       inspectorScaleSlider.value = 100;
       inspectorScaleVal.textContent = '100%';
+      saveCustomLayouts();
     });
 
+    // Excluir botão selecionado da tela
+    btnInspectorDeleteItem.addEventListener('click', () => {
+      if (!selectedCtrlElement) return;
+      const ctrlId = selectedCtrlElement.dataset.ctrlId;
+      if (!customLayouts[ctrlId]) customLayouts[ctrlId] = { x: 0, y: 0, scale: 1.0 };
+      customLayouts[ctrlId].hidden = true;
+      selectedCtrlElement.style.display = 'none';
+      deselectControl();
+      saveCustomLayouts();
+      if (navigator.vibrate) navigator.vibrate([20, 40]);
+    });
+
+    // Modal Adicionar / Restaurar Botões
+    function openAddControlModal() {
+      const activeContainer = currentMode === 'gamepad' ? gamepadView : wheelView;
+      const controls = activeContainer.querySelectorAll('.customizable-ctrl');
+
+      addControlList.innerHTML = '';
+
+      controls.forEach(ctrl => {
+        const ctrlId = ctrl.dataset.ctrlId;
+        const name = ctrl.dataset.name || "Controle";
+        const isHidden = customLayouts[ctrlId] && customLayouts[ctrlId].hidden === true;
+
+        const row = document.createElement('div');
+        row.className = 'add-control-card';
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.justifyContent = 'space-between';
+        row.style.background = '#140e11';
+        row.style.border = '1px solid rgba(255,255,255,0.1)';
+        row.style.borderRadius = '12px';
+        row.style.padding = '10px 14px';
+
+        const info = document.createElement('div');
+        info.style.display = 'flex';
+        info.style.flexDirection = 'column';
+        info.style.gap = '2px';
+
+        const title = document.createElement('span');
+        title.style.fontSize = '13px';
+        title.style.fontWeight = '700';
+        title.style.color = '#fff';
+        title.textContent = name;
+
+        const status = document.createElement('span');
+        status.style.fontSize = '11px';
+        status.style.fontWeight = '600';
+        status.style.color = isHidden ? '#ff4757' : '#2ed573';
+        status.textContent = isHidden ? '❌ Excluído / Oculto' : '✅ Visível na Tela';
+
+        info.appendChild(title);
+        info.appendChild(status);
+        row.appendChild(info);
+
+        const actionBtn = document.createElement('button');
+        actionBtn.className = 'edit-bar-btn';
+        actionBtn.style.padding = '6px 14px';
+        actionBtn.style.cursor = 'pointer';
+
+        if (isHidden) {
+          actionBtn.textContent = '➕ Adicionar';
+          actionBtn.style.background = '#10b981';
+          actionBtn.style.color = '#fff';
+          actionBtn.onclick = () => {
+            if (!customLayouts[ctrlId]) customLayouts[ctrlId] = { x: 0, y: 0, scale: 1.0 };
+            customLayouts[ctrlId].hidden = false;
+            ctrl.style.display = '';
+            applyElementTransform(ctrl, customLayouts[ctrlId]);
+            saveCustomLayouts();
+            addControlModal.style.display = 'none';
+            selectControl(ctrl);
+            if (navigator.vibrate) navigator.vibrate(20);
+          };
+        } else {
+          actionBtn.textContent = '🗑️ Excluir';
+          actionBtn.style.background = '#eb2f06';
+          actionBtn.style.color = '#fff';
+          actionBtn.onclick = () => {
+            if (!customLayouts[ctrlId]) customLayouts[ctrlId] = { x: 0, y: 0, scale: 1.0 };
+            customLayouts[ctrlId].hidden = true;
+            ctrl.style.display = 'none';
+            saveCustomLayouts();
+            if (selectedCtrlElement === ctrl) deselectControl();
+            openAddControlModal();
+            if (navigator.vibrate) navigator.vibrate(20);
+          };
+        }
+
+        row.appendChild(actionBtn);
+        addControlList.appendChild(row);
+      });
+
+      addControlModal.style.display = 'flex';
+    }
+
+    btnOpenAddModal.addEventListener('click', openAddControlModal);
+    closeAddModal.addEventListener('click', () => addControlModal.style.display = 'none');
+    btnCloseAddModal.addEventListener('click', () => addControlModal.style.display = 'none');
+
     btnResetPositions.addEventListener('click', () => {
-      if (confirm("Deseja restaurar todas as posições e tamanhos para o padrão?")) {
+      if (confirm("Deseja restaurar todas as posições, tamanhos e botões para o padrão?")) {
         customLayouts = {};
         localStorage.removeItem('rw_custom_layouts_v2');
         document.querySelectorAll('.customizable-ctrl').forEach(el => {
           el.style.transform = '';
+          el.style.display = '';
         });
         deselectControl();
       }
@@ -1525,7 +1662,14 @@
       document.querySelectorAll('.customizable-ctrl').forEach(el => {
         const id = el.dataset.ctrlId;
         if (customLayouts[id]) {
-          applyElementTransform(el, customLayouts[id]);
+          if (customLayouts[id].hidden === true) {
+            el.style.display = 'none';
+          } else {
+            el.style.display = '';
+            applyElementTransform(el, customLayouts[id]);
+          }
+        } else {
+          el.style.display = '';
         }
       });
     }
@@ -1939,6 +2083,12 @@
       { id: 'chk-rstick', selectors: ['#right-stick'] },
       { id: 'chk-center', selectors: ['#ctrl-gp-center'] },
       { id: 'chk-l3-r3', selectors: ['#btn-l3', '#btn-r3'] },
+      { id: 'chk-wheel-nitro', selectors: ['#wheel-nitro'] },
+      { id: 'chk-wheel-handbrake', selectors: ['#wheel-handbrake'] },
+      { id: 'chk-wheel-dash', selectors: ['#ctrl-wheel-dash'] },
+      { id: 'chk-wheel-gears', selectors: ['#wheel-gear-down', '#wheel-gear-up'] },
+      { id: 'chk-wheel-hud', selectors: ['#ctrl-wheel-hud'] },
+      { id: 'chk-wheel-box', selectors: ['#ctrl-wheel-wheelbox'] },
     ];
 
     function applyLayoutPreferences() {
