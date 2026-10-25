@@ -218,6 +218,7 @@ class ControllerManager:
         gear_up = bool(data.get("gear_up", False))
         gear_down = bool(data.get("gear_down", False))
         camera = bool(data.get("camera", False))
+        home = bool(data.get("home", False))
         pause = bool(data.get("pause", False))
 
         if self.gamepad:
@@ -228,6 +229,7 @@ class ControllerManager:
             self._set_btn(vg.XUSB_BUTTON.XUSB_GAMEPAD_A, handbrake)
             self._set_btn(vg.XUSB_BUTTON.XUSB_GAMEPAD_X, nitro)
             self._set_btn(vg.XUSB_BUTTON.XUSB_GAMEPAD_Y, camera)
+            self._set_btn(vg.XUSB_BUTTON.XUSB_GAMEPAD_GUIDE, home)
             self._set_btn(vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_SHOULDER, gear_up)
             self._set_btn(vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER, gear_down)
             self._set_btn(vg.XUSB_BUTTON.XUSB_GAMEPAD_START, pause)
@@ -279,9 +281,10 @@ class ControllerManager:
             self._set_btn(vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_THUMB, bool(data.get("btn_l3")))
             self._set_btn(vg.XUSB_BUTTON.XUSB_GAMEPAD_RIGHT_THUMB, bool(data.get("btn_r3")))
 
-            # Start / Select
+            # Start / Select / Home (Xbox Guide / PS / Steam)
             self._set_btn(vg.XUSB_BUTTON.XUSB_GAMEPAD_START, bool(data.get("btn_start")))
             self._set_btn(vg.XUSB_BUTTON.XUSB_GAMEPAD_BACK, bool(data.get("btn_select")))
+            self._set_btn(vg.XUSB_BUTTON.XUSB_GAMEPAD_GUIDE, bool(data.get("btn_guide")))
 
             self.gamepad.update()
         elif HAVE_PYNPUT and kb:
