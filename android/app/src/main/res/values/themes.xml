@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.RemoteWheel" parent="android:Theme.Material.NoActionBar.Fullscreen">
+    <style name="Theme.RemoteWheel" parent="android:Theme.DeviceDefault.NoActionBar.Fullscreen">
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowFullscreen">true</item>
         <item name="android:windowContentOverlay">@null</item>
-        <item name="android:windowBackground">#120e10</item>
-        <item name="android:colorBackground">#120e10</item>
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:colorBackground">@color/background</item>
     </style>
 </resources>

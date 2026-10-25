@@ -3,16 +3,21 @@ package com.lucas.remotewheel
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.AlertDialog
 import android.bluetooth.BluetoothAdapter
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
+import android.webkit.ConsoleMessage
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -20,9 +25,13 @@ import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import java.io.File
+import java.io.PrintWriter
+import java.io.StringWriter
 
 class MainActivity : Activity(), BluetoothHidManager.StateListener {
 
+    private val tag = "RemoteWheelMain"
     private lateinit var webView: WebView
     lateinit var btManager: BluetoothHidManager
     private lateinit var webAppBridge: WebAppBridge
@@ -30,18 +39,31 @@ class MainActivity : Activity(), BluetoothHidManager.StateListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Configuração de Tela Cheia Imersiva
-        hideSystemUI()
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        // Instala Handler Global de Exceções Não Tratadas (Evita Crash Silencioso)
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            val stackTrace = StringWriter().also { throwable.printStackTrace(PrintWriter(it)) }.toString()
+            Log.e(tag, "FATAL CRASH na thread ${thread.name}:\n$stackTrace")
+            try {
+                val crashFile = File(filesDir, "crash_log.txt")
+                crashFile.writeText(stackTrace)
+            } catch (_: Throwable) {}
+        }
 
-        // Inicializa Bluetooth HID Manager
-        btManager = BluetoothHidManager(this, this)
-        webAppBridge = WebAppBridge(this, btManager)
+        try {
+            // Configuração de Tela Cheia Imersiva
+            hideSystemUI()
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
-        // Inicializa WebView de alta performance
-        setupWebView()
+            // Inicializa Bluetooth HID Manager (Modo Passivo - não toca no rádio até ser solicitado)
+            btManager = BluetoothHidManager(this, this)
+            webAppBridge = WebAppBridge(this, btManager)
 
-        checkBluetoothPermissions()
+            // Inicializa WebView de alta performance
+            setupWebView()
+        } catch (e: Throwable) {
+            Log.e(tag, "Erro no onCreate: ${e.message}", e)
+            showFatalError("Falha na inicialização", e.localizedMessage ?: e.toString())
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -61,13 +83,25 @@ class MainActivity : Activity(), BluetoothHidManager.StateListener {
                 loadWithOverviewMode = true
                 mediaPlaybackRequiresUserGesture = false
                 cacheMode = WebSettings.LOAD_NO_CACHE
+                mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             }
 
-            webChromeClient = WebChromeClient()
+            webChromeClient = object : WebChromeClient() {
+                override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+                    Log.d("RemoteWheelWeb", "${consoleMessage?.message()} -- From line ${consoleMessage?.lineNumber()}")
+                    return true
+                }
+            }
+
             webViewClient = object : WebViewClient() {
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
                     evaluateJavascript("if (window.setAndroidBridgeActive) window.setAndroidBridgeActive(true);", null)
+                }
+
+                override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+                    super.onReceivedError(view, request, error)
+                    Log.e("RemoteWheelWeb", "Erro WebView: ${error?.description}")
                 }
             }
 
@@ -82,22 +116,26 @@ class MainActivity : Activity(), BluetoothHidManager.StateListener {
     }
 
     private fun hideSystemUI() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            window.setDecorFitsSystemWindows(false)
-            window.insetsController?.let { controller ->
-                controller.hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
-                controller.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                window.setDecorFitsSystemWindows(false)
+                window.insetsController?.let { controller ->
+                    controller.hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
+                    controller.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                window.decorView.systemUiVisibility = (
+                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                    or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                    or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    or View.SYSTEM_UI_FLAG_FULLSCREEN
+                )
             }
-        } else {
-            @Suppress("DEPRECATION")
-            window.decorView.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                or View.SYSTEM_UI_FLAG_FULLSCREEN
-            )
+        } catch (e: Throwable) {
+            Log.w(tag, "Não foi possível aplicar hideSystemUI: ${e.message}")
         }
     }
 
@@ -108,7 +146,7 @@ class MainActivity : Activity(), BluetoothHidManager.StateListener {
         }
     }
 
-    private fun checkBluetoothPermissions() {
+    fun ensureBluetoothPermissionsAndStart() {
         val permissions = mutableListOf<String>()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -137,48 +175,76 @@ class MainActivity : Activity(), BluetoothHidManager.StateListener {
             if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
                 btManager.initialize()
             } else {
-                Toast.makeText(this, "Permissões de Bluetooth necessárias para parear com a TV!", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Permissão de Bluetooth necessária para modo TV!", Toast.LENGTH_LONG).show()
+                onStatusChanged("need_permissions", null)
             }
         }
     }
 
     @SuppressLint("MissingPermission")
     fun requestBluetoothDiscoverable() {
-        val adapter = btManager.bluetoothAdapter
-        if (adapter == null) {
-            Toast.makeText(this, "Bluetooth não disponível neste dispositivo", Toast.LENGTH_SHORT).show()
-            return
-        }
+        try {
+            if (!btManager.hasPermissions()) {
+                ensureBluetoothPermissionsAndStart()
+                return
+            }
 
-        if (!adapter.isEnabled) {
-            val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
-            startActivity(enableBtIntent)
-            return
-        }
+            val adapter = btManager.bluetoothAdapter
+            if (adapter == null) {
+                Toast.makeText(this, "Bluetooth indisponível neste aparelho", Toast.LENGTH_SHORT).show()
+                return
+            }
 
-        // Torna o celular detectável na TV por 300 segundos (5 minutos)
-        val discoverableIntent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
-            putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
+            if (!adapter.isEnabled) {
+                val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+                startActivity(enableBtIntent)
+                return
+            }
+
+            // Torna o celular detectável na TV por 300 segundos (5 minutos)
+            val discoverableIntent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
+                putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300)
+            }
+            startActivity(discoverableIntent)
+            Toast.makeText(this, "Visível na TV! Conecte em Controle Bluetooth na sua TV Samsung/TVBox", Toast.LENGTH_LONG).show()
+        } catch (e: Throwable) {
+            Log.e(tag, "Erro ao solicitar discoverable: ${e.message}")
+            Toast.makeText(this, "Erro ao abrir Bluetooth: ${e.message}", Toast.LENGTH_SHORT).show()
         }
-        startActivity(discoverableIntent)
-        Toast.makeText(this, "Visível na TV Samsung / TVBox! Vá em Conectar Controle Bluetooth na TV", Toast.LENGTH_LONG).show()
     }
 
     override fun onStatusChanged(status: String, connectedDeviceName: String?) {
         runOnUiThread {
-            val dev = connectedDeviceName ?: ""
-            webView.evaluateJavascript("if (window.onBluetoothStatusChanged) window.onBluetoothStatusChanged('$status', '$dev');", null)
+            try {
+                val dev = connectedDeviceName ?: ""
+                webView.evaluateJavascript("if (window.onBluetoothStatusChanged) window.onBluetoothStatusChanged('$status', '$dev');", null)
+            } catch (e: Throwable) {
+                Log.e(tag, "Erro ao atualizar status na WebView: ${e.message}")
+            }
         }
     }
 
     override fun onLog(message: String) {
         runOnUiThread {
-            webView.evaluateJavascript("console.log('[Android BT]: $message');", null)
+            try {
+                val escaped = message.replace("'", "\\'")
+                webView.evaluateJavascript("console.log('[Android BT]: $escaped');", null)
+            } catch (_: Throwable) {}
         }
+    }
+
+    private fun showFatalError(title: String, message: String) {
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton("OK") { d, _ -> d.dismiss() }
+            .show()
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        btManager.close()
+        try {
+            btManager.close()
+        } catch (_: Throwable) {}
     }
 }

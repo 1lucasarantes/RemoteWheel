@@ -28,7 +28,7 @@ class WebAppBridge(
         connectionMode = if (mode.equals("bluetooth", ignoreCase = true)) "bluetooth" else "wifi"
         activity.runOnUiThread {
             if (connectionMode == "bluetooth") {
-                btManager.initialize()
+                activity.ensureBluetoothPermissionsAndStart()
             }
         }
     }
@@ -64,6 +64,6 @@ class WebAppBridge(
                     }
                 }
             }
-        } catch (_: Exception) {}
+        } catch (_: Throwable) {}
     }
 }

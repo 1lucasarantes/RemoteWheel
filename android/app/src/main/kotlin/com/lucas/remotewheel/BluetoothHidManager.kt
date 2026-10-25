@@ -1,5 +1,6 @@
 package com.lucas.remotewheel
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
@@ -9,6 +10,8 @@ import android.bluetooth.BluetoothHidDeviceAppSdpSettings
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
 import androidx.core.content.ContextCompat
 import org.json.JSONObject
@@ -25,8 +28,22 @@ class BluetoothHidManager(private val context: Context, private val listener: St
     private var connectedDevice: BluetoothDevice? = null
     private var isAppRegistered = false
 
-    private val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-    val bluetoothAdapter: BluetoothAdapter? = bluetoothManager?.adapter
+    private val bluetoothManager: BluetoothManager? by lazy {
+        try {
+            context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+        } catch (e: Throwable) {
+            Log.e(tag, "Erro ao obter BluetoothManager: ${e.message}")
+            null
+        }
+    }
+
+    val bluetoothAdapter: BluetoothAdapter?
+        get() = try {
+            bluetoothManager?.adapter
+        } catch (e: Throwable) {
+            Log.e(tag, "Erro ao obter BluetoothAdapter: ${e.message}")
+            null
+        }
 
     // Descritor HID de Gamepad Padrão compatível com Samsung Tizen, Android TV, Windows e Linux
     // 16 Botões (A, B, X, Y, LB, RB, LT digital, RT digital, Select, Start, L3, R3, Guide/Home, etc.)
@@ -91,7 +108,7 @@ class BluetoothHidManager(private val context: Context, private val listener: St
         0xC0.toByte()                         // End Collection
     )
 
-    // Reutiliza buffer de 9 bytes para zero alocação de memória em 60 FPS
+    // Buffer de 9 bytes para zero alocação de memória em 60 FPS
     private val reportBuffer = ByteArray(9)
 
     private val hidCallback = object : BluetoothHidDevice.Callback() {
@@ -110,24 +127,29 @@ class BluetoothHidManager(private val context: Context, private val listener: St
         @SuppressLint("MissingPermission")
         override fun onConnectionStateChanged(device: BluetoothDevice?, state: Int) {
             super.onConnectionStateChanged(device, state)
-            when (state) {
-                BluetoothProfile.STATE_CONNECTED -> {
-                    connectedDevice = device
-                    val devName = device?.name ?: "Dispositivo Bluetooth"
-                    Log.d(tag, "Conectado a: $devName (${device?.address})")
-                    listener.onStatusChanged("connected", devName)
-                    listener.onLog("Conectado na TV: $devName")
+            try {
+                when (state) {
+                    BluetoothProfile.STATE_CONNECTED -> {
+                        connectedDevice = device
+                        val devName = try { device?.name ?: "Dispositivo Bluetooth" } catch (_: Throwable) { "Dispositivo Bluetooth" }
+                        Log.d(tag, "Conectado a: $devName")
+                        listener.onStatusChanged("connected", devName)
+                        listener.onLog("Conectado na TV: $devName")
+                    }
+                    BluetoothProfile.STATE_DISCONNECTED -> {
+                        if (connectedDevice == device) connectedDevice = null
+                        Log.d(tag, "Desconectado")
+                        listener.onStatusChanged("disconnected", null)
+                        listener.onLog("Desconectado da TV")
+                    }
+                    BluetoothProfile.STATE_CONNECTING -> {
+                        val devName = try { device?.name } catch (_: Throwable) { null }
+                        listener.onStatusChanged("connecting", devName)
+                        listener.onLog("Conectando à TV...")
+                    }
                 }
-                BluetoothProfile.STATE_DISCONNECTED -> {
-                    if (connectedDevice == device) connectedDevice = null
-                    Log.d(tag, "Desconectado")
-                    listener.onStatusChanged("disconnected", null)
-                    listener.onLog("Desconectado da TV")
-                }
-                BluetoothProfile.STATE_CONNECTING -> {
-                    listener.onStatusChanged("connecting", device?.name)
-                    listener.onLog("Conectando à TV...")
-                }
+            } catch (e: Throwable) {
+                Log.e(tag, "Erro no onConnectionStateChanged: ${e.message}")
             }
         }
     }
@@ -135,9 +157,14 @@ class BluetoothHidManager(private val context: Context, private val listener: St
     private val profileListener = object : BluetoothProfile.ServiceListener {
         @SuppressLint("MissingPermission")
         override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
-            if (profile == BluetoothProfile.HID_DEVICE) {
-                hidDevice = proxy as BluetoothHidDevice
-                registerApp()
+            try {
+                if (profile == BluetoothProfile.HID_DEVICE) {
+                    hidDevice = proxy as? BluetoothHidDevice
+                    registerApp()
+                }
+            } catch (e: Throwable) {
+                Log.e(tag, "Erro ao conectar serviço HID_DEVICE: ${e.message}")
+                listener.onLog("Erro ao ativar HID: ${e.message}")
             }
         }
 
@@ -151,15 +178,52 @@ class BluetoothHidManager(private val context: Context, private val listener: St
         }
     }
 
+    fun hasPermissions(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_ADVERTISE) == PackageManager.PERMISSION_GRANTED
+        } else {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
     @SuppressLint("MissingPermission")
     fun initialize() {
-        if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled) {
-            listener.onLog("Bluetooth desativado no aparelho")
-            listener.onStatusChanged("disabled", null)
-            return
-        }
+        try {
+            if (!hasPermissions()) {
+                listener.onLog("Permissões de Bluetooth pendentes")
+                listener.onStatusChanged("need_permissions", null)
+                return
+            }
 
-        bluetoothAdapter.getProfileProxy(context, profileListener, BluetoothProfile.HID_DEVICE)
+            val adapter = bluetoothAdapter
+            if (adapter == null) {
+                listener.onLog("Bluetooth não encontrado no aparelho")
+                listener.onStatusChanged("unsupported", null)
+                return
+            }
+
+            if (!adapter.isEnabled) {
+                listener.onLog("Bluetooth desativado no aparelho")
+                listener.onStatusChanged("disabled", null)
+                return
+            }
+
+            // Verifica se o perfil HID_DEVICE é suportado
+            val success = adapter.getProfileProxy(context, profileListener, BluetoothProfile.HID_DEVICE)
+            if (!success) {
+                listener.onLog("Este aparelho não suporta perfil Bluetooth HID Gamepad")
+                listener.onStatusChanged("unsupported", null)
+            }
+        } catch (e: SecurityException) {
+            Log.e(tag, "Permissão negada ao inicializar Bluetooth: ${e.message}")
+            listener.onLog("Permissão de Bluetooth necessária")
+            listener.onStatusChanged("need_permissions", null)
+        } catch (e: Throwable) {
+            Log.e(tag, "Erro geral ao inicializar Bluetooth: ${e.message}")
+            listener.onLog("Erro no Bluetooth: ${e.message}")
+            listener.onStatusChanged("error", null)
+        }
     }
 
     @SuppressLint("MissingPermission")
@@ -167,21 +231,26 @@ class BluetoothHidManager(private val context: Context, private val listener: St
         val hid = hidDevice ?: return
         if (isAppRegistered) return
 
-        val sdp = BluetoothHidDeviceAppSdpSettings(
-            "Remote Gamepad",
-            "Controle Virtual Bluetooth para Smart TV e PC",
-            "Lucas",
-            BluetoothHidDevice.SUBCLASS1_COMBO,
-            GAMEPAD_REPORT_DESCRIPTOR
-        )
+        try {
+            val sdp = BluetoothHidDeviceAppSdpSettings(
+                "Remote Gamepad",
+                "Controle Virtual Bluetooth para Smart TV e PC",
+                "Lucas",
+                BluetoothHidDevice.SUBCLASS1_COMBO,
+                GAMEPAD_REPORT_DESCRIPTOR
+            )
 
-        val qos = BluetoothHidDeviceAppQosSettings(
-            BluetoothHidDeviceAppQosSettings.SERVICE_BEST_EFFORT,
-            800, 9, 0, 11250,
-            BluetoothHidDeviceAppQosSettings.MAX
-        )
+            val qos = BluetoothHidDeviceAppQosSettings(
+                BluetoothHidDeviceAppQosSettings.SERVICE_BEST_EFFORT,
+                800, 9, 0, 11250,
+                BluetoothHidDeviceAppQosSettings.MAX
+            )
 
-        hid.registerApp(sdp, null, qos, ContextCompat.getMainExecutor(context), hidCallback)
+            hid.registerApp(sdp, null, qos, ContextCompat.getMainExecutor(context), hidCallback)
+        } catch (e: Throwable) {
+            Log.e(tag, "Erro ao registrar app HID: ${e.message}")
+            listener.onLog("Falha ao registrar serviço HID: ${e.message}")
+        }
     }
 
     @SuppressLint("MissingPermission")
@@ -191,7 +260,7 @@ class BluetoothHidManager(private val context: Context, private val listener: St
                 if (isAppRegistered) it.unregisterApp()
                 bluetoothAdapter?.closeProfileProxy(BluetoothProfile.HID_DEVICE, it)
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.e(tag, "Erro ao fechar Bluetooth HID: ${e.message}")
         }
         hidDevice = null
@@ -274,7 +343,7 @@ class BluetoothHidManager(private val context: Context, private val listener: St
             }
 
             hid.sendReport(target, 1, reportBuffer)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.e(tag, "sendGamepadState erro: ${e.message}")
         }
     }
