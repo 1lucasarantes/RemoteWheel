@@ -1563,9 +1563,9 @@
     });
     rngSensSmooth.addEventListener('input', (e) => {
       const v = parseInt(e.target.value);
-      if (v === 1) { config.smoothFactor = 0.45; lblSensSmooth.textContent = "Rápido / Direto"; }
-      else if (v === 2) { config.smoothFactor = 0.25; lblSensSmooth.textContent = "Normal / Suave"; }
-      else { config.smoothFactor = 0.12; lblSensSmooth.textContent = "Ultra Estável"; }
+      if (v === 1) { config.smoothFactor = 0.50; lblSensSmooth.textContent = "Rápido / Direto (Ideal The Crew)"; }
+      else if (v === 2) { config.smoothFactor = 0.30; lblSensSmooth.textContent = "Normal / Equilibrado"; }
+      else { config.smoothFactor = 0.20; lblSensSmooth.textContent = "Estável / Firme"; }
     });
     rngSensSticks.addEventListener('input', (e) => {
       config.stickSens = parseFloat((e.target.value / 100).toFixed(2));
@@ -1880,6 +1880,16 @@
       lblSensAngle.textContent = `${config.maxAngle}°`;
       rngSensDeadzone.value = config.deadzone;
       lblSensDeadzone.textContent = `${config.deadzone}°`;
+      if (config.smoothFactor >= 0.40) {
+        rngSensSmooth.value = 1;
+        lblSensSmooth.textContent = "Rápido / Direto (Ideal The Crew)";
+      } else if (config.smoothFactor >= 0.25) {
+        rngSensSmooth.value = 2;
+        lblSensSmooth.textContent = "Normal / Equilibrado";
+      } else {
+        rngSensSmooth.value = 3;
+        lblSensSmooth.textContent = "Estável / Firme";
+      }
       rngSensSticks.value = Math.round(config.stickSens * 100);
       lblSensSticks.textContent = `${rngSensSticks.value}%`;
       rngGlow.value = Math.round(config.glow * 100);
@@ -2334,9 +2344,13 @@
     bindBtn('wheel-home', () => wheelState.home = true, () => wheelState.home = false);
     bindBtn('wheel-pause', () => wheelState.pause = true, () => wheelState.pause = false);
 
+    let lastContinuousAngle = 0;
+    let hasInitialAngle = false;
+
     btnCalibrateWheel.addEventListener('click', () => {
       wheelState.calibratedOffset += smoothedSteer;
       smoothedSteer = 0;
+      lastContinuousAngle = 0;
       if (navigator.vibrate) navigator.vibrate([20, 50, 20]);
     });
 
@@ -2359,14 +2373,19 @@
       sensorActive = true;
 
       let raw = 0;
-      const orient = window.orientation || (screen.orientation ? screen.orientation.angle : 0);
+      let orient = 90;
+      if (screen.orientation && typeof screen.orientation.angle === 'number') {
+        orient = screen.orientation.angle;
+      } else if (typeof window.orientation === 'number') {
+        orient = window.orientation;
+      }
 
-      if (orient === 90) {
-        raw = -e.beta;
-      } else if (orient === -90 || orient === 270) {
-        raw = e.beta;
+      // Em modo paisagem, beta mede a rotação tipo volante nas duas mãos
+      if (orient === -90 || orient === 270) {
+        raw = e.beta || 0;
       } else {
-        raw = e.gamma || e.beta || 0;
+        // Landscape 90 ou 0 em Activity bloqueada em paisagem
+        raw = -(e.beta || 0);
       }
 
       applySteeringAngle(raw);
@@ -2387,17 +2406,56 @@
       if (config.invertSteer) {
         raw = -raw;
       }
-      const angle = raw - wheelState.calibratedOffset;
+      let angle = raw - wheelState.calibratedOffset;
+
+      if (!hasInitialAngle) {
+        lastContinuousAngle = angle;
+        smoothedSteer = angle;
+        hasInitialAngle = true;
+      }
+
+      // 1. FILTRO ANTI-GIMBAL LOCK / ANTI-FLIP
+      // Quando o celular inclina rápido, os ângulos de Euler do Android dão um salto brusco de ~180°
+      const delta = angle - lastContinuousAngle;
+      if (delta > 110) {
+        angle -= 180;
+      } else if (delta < -110) {
+        angle += 180;
+      }
+
+      // 2. LIMITADOR DE TAXA ANGULAR (evita solavancos instantâneos no jogo por ruído do sensor)
+      const maxDelta = 30; // 30 graus por frame (1800°/s)
+      if (Math.abs(angle - lastContinuousAngle) > maxDelta) {
+        angle = lastContinuousAngle + Math.sign(angle - lastContinuousAngle) * maxDelta;
+      }
+      lastContinuousAngle = angle;
+
+      // 3. BATENTE FÍSICO DE SEGURANÇA (CLAMP)
+      // O ângulo real computado nunca deve passar do limite seguro de giro das mãos
+      const physicalLimit = Math.max(config.maxAngle, 65);
+      angle = Math.max(-physicalLimit, Math.min(physicalLimit, angle));
+
+      // 4. FILTRO DE SUAVIZAÇÃO IIR
       smoothedSteer = smoothedSteer * (1 - config.smoothFactor) + angle * config.smoothFactor;
 
+      // 5. CÁLCULO DE SAÍDA DO GAMEPAD (-1.0 a +1.0) COM PROGRESSIVIDADE NÃO-LINEAR
       let steerVal = 0;
       const absA = Math.abs(smoothedSteer);
       if (absA > config.deadzone) {
-        steerVal = Math.min(1.0, (absA - config.deadzone) / (config.maxAngle - config.deadzone)) * Math.sign(smoothedSteer);
+        let normalized = (absA - config.deadzone) / Math.max(1, (config.maxAngle - config.deadzone));
+        normalized = Math.min(1.0, Math.max(0.0, normalized));
+        // Curva progressiva suave (1.15) para máxima estabilidade em retas e resposta viva em curvas
+        const curved = Math.pow(normalized, 1.15);
+        steerVal = curved * Math.sign(smoothedSteer);
       }
 
       wheelState.steer = parseFloat(steerVal.toFixed(3));
-      wheelSvg.style.transform = `rotate(${smoothedSteer * 1.6}deg)`;
+
+      // 6. ROTAÇÃO VISUAL DO VOLANTE:
+      // O volante visual gira proporcionalmente ao esterço com trava absoluta em 90°.
+      // NUNCA VIRA DE CABEÇA PARA BAIXO!
+      const visualRotation = Math.max(-90, Math.min(90, wheelState.steer * 90));
+      wheelSvg.style.transform = `rotate(${visualRotation}deg)`;
 
       const pct = Math.round(wheelState.steer * 100);
       if (pct < -2) wheelAngleTxt.textContent = `◀ ${Math.abs(pct)}%`;
