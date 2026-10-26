@@ -1,9 +1,9 @@
 # 🏎️ Remote Wheel & Gamepad (Mobile ➔ PC & Smart TV Controller)
 
-[![Release](https://img.shields.io/github/v/release/1newsgamee/RemoteWheel?color=crimson&label=Release)](https://github.com/1newsgamee/RemoteWheel/releases)
+[![Release](https://img.shields.io/github/v/release/1lucasarantes/RemoteWheel?color=crimson&label=Release)](https://github.com/1lucasarantes/RemoteWheel/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Android](https://img.shields.io/badge/Android-APK%20Included-3DDC84?logo=android&logoColor=white)](https://github.com/1newsgamee/RemoteWheel/releases)
-[![Windows](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D6?logo=windows&logoColor=white)](https://github.com/1newsgamee/RemoteWheel/releases)
+[![Android](https://img.shields.io/badge/Android-APK%20Included-3DDC84?logo=android&logoColor=white)](https://github.com/1lucasarantes/RemoteWheel/releases)
+[![Windows](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-0078D6?logo=windows&logoColor=white)](https://github.com/1lucasarantes/RemoteWheel/releases)
 
 Transforme qualquer smartphone (Android / iOS) em um **Volante de Corrida por Acelerômetro** e um **Gamepad Completo estilo Xbox 360** com suporte **Dual Mode**:
 1. **Computador (Wi-Fi):** Com **Force Feedback háptico real vindo dos jogos**, transmissão a 60-120 FPS e emulação nativa no Windows via **ViGEmBus (XInput)**.
@@ -76,7 +76,7 @@ flowchart TD
 
 ### Opção 1: Usando no Computador (Windows)
 
-1. Baixe o pacote **`RemoteWheel-v0.1.0-Windows.zip`** na [página de Releases](https://github.com/1newsgamee/RemoteWheel/releases).
+1. Baixe o pacote **`RemoteWheel-v0.1.0-Windows.zip`** na [página de Releases](https://github.com/1lucasarantes/RemoteWheel/releases).
 2. Extraia a pasta e execute **`iniciar_remotewheel.bat`**.
 3. O servidor abrirá um link com **QR Code** no terminal:
    - Abra a câmera do celular ou digite o link no navegador do smartphone.
