@@ -37,3 +37,6 @@ ENV/
 
 # Logs
 *.log
+
+# Releases / Zips
+*.zip
