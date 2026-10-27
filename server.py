@@ -28,7 +28,13 @@ try:
     HAVE_VGAMEPAD = True
 except Exception as e:
     HAVE_VGAMEPAD = False
-    print(f"[!] ViGEmBus / vgamepad não disponível: {e}")
+    print("=" * 66)
+    print("⚠️  AVISO IMPORTANTE: Driver ViGEmBus não encontrado neste computador!")
+    print(f"    Detalhe: {e}")
+    print("\n👉 Para que o Windows reconheça o controle virtual Xbox 360:")
+    print("   Execute o instalador oficial que acompanha este pacote:")
+    print("   👉 Instalar_ViGEmBus_x64.msi")
+    print("=" * 66 + "\n")
 
 try:
     from pynput.keyboard import Controller as KeyboardController, Key

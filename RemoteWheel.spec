@@ -1,12 +1,19 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os
+import vgamepad
 
+vgamepad_path = os.path.dirname(vgamepad.__file__)
+vgamepad_vigem_path = os.path.join(vgamepad_path, 'win', 'vigem')
 
 a = Analysis(
     ['server.py'],
     pathex=[],
     binaries=[],
-    datas=[('web', 'web')],
-    hiddenimports=[],
+    datas=[
+        ('web', 'web'),
+        (vgamepad_vigem_path, os.path.join('vgamepad', 'win', 'vigem'))
+    ],
+    hiddenimports=['vgamepad', 'vgamepad.win', 'vgamepad.win.vigem_client', 'vgamepad.win.vigem_commons', 'vgamepad.win.virtual_gamepad'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
