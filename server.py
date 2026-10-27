@@ -221,76 +221,75 @@ def start_http_servers(host, http_port, https_port, ssl_ctx):
 # --- GERENCIADOR DE CLIENTES E FORCE FEEDBACK (RUMBLE) ---
 connected_clients = set()
 asyncio_loop = None
-last_rumble_sent_time = 0.0
-last_rumble_values = (0, 0)
 
 
-def broadcast_rumble_sync(large_motor, small_motor):
-    """Encaminha o Force Feedback do jogo para os celulares com rate-limiting inteligente contra sobrecarga."""
-    global asyncio_loop, connected_clients, last_rumble_sent_time, last_rumble_values
-    if not (asyncio_loop and asyncio_loop.is_running() and connected_clients):
-        return
+# --- GERENCIADOR DE JOGADORES MULTIPLAYER (ATÉ 4 CONTROLES XBOX VIRTUAIS) ---
+class PlayerController:
+    """Gerencia um controle virtual individual de Xbox 360 para um Player (P1 a P4)."""
 
-    now = time.time()
-    l, s = int(large_motor), int(small_motor)
-
-    # Se parou de vibrar (ambos 0), envia imediatamente para encerrar
-    if l == 0 and s == 0:
-        if last_rumble_values != (0, 0):
-            last_rumble_values = (0, 0)
-            last_rumble_sent_time = now
-            asyncio_loop.call_soon_threadsafe(
-                lambda: asyncio.create_task(broadcast_rumble(0, 0))
-            )
-        return
-
-    # Limita envios contínuos a ~20 vezes/seg para proteger o motor térmico do smartphone
-    diff = max(abs(l - last_rumble_values[0]), abs(s - last_rumble_values[1]))
-    if (now - last_rumble_sent_time >= 0.05) or (diff >= 35):
-        last_rumble_values = (l, s)
-        last_rumble_sent_time = now
-        asyncio_loop.call_soon_threadsafe(
-            lambda: asyncio.create_task(broadcast_rumble(l, s))
-        )
-
-
-async def broadcast_rumble(large_motor, small_motor):
-    if not connected_clients:
-        return
-    msg = json.dumps({
-        "type": "rumble",
-        "large": int(large_motor),
-        "small": int(small_motor)
-    })
-    for ws in list(connected_clients):
-        try:
-            await ws.send(msg)
-        except Exception:
-            pass
-
-
-# --- GERENCIADOR DE INPUTS (CONTROLE XBOX E TECLADO) ---
-class ControllerManager:
-    def __init__(self):
+    def __init__(self, player_id):
+        self.player_id = player_id
         self.gamepad = None
         self.mode = "gamepad"
         self.kb_pressed = set()
+        self.websocket = None
+        self.last_rumble_sent_time = 0.0
+        self.last_rumble_values = (0, 0)
 
         if HAVE_VGAMEPAD:
             try:
                 self.gamepad = vg.VX360Gamepad()
-                
-                # Registra callback de Force Feedback (Rumble dos jogos)
+
+                # Registra callback de Rumble específico para este player
                 def rumble_callback(client, target, large_motor, small_motor, led_number, user_data):
-                    broadcast_rumble_sync(large_motor, small_motor)
+                    self.send_rumble_sync(large_motor, small_motor)
 
                 self.gamepad.register_notification(rumble_callback)
-                print("[OK] Controle Virtual Xbox 360 ativo com Force Feedback (Rumble) via ViGEmBus!")
+                print(f"[OK] Player {player_id}: Controle Virtual Xbox 360 alocado via ViGEmBus!")
             except Exception as e:
-                print(f"[!] Erro ao criar VX360Gamepad: {e}")
+                print(f"[!] Player {player_id}: Erro ao criar VX360Gamepad: {e}")
                 self.mode = "keyboard"
         else:
             self.mode = "keyboard"
+
+    def send_rumble_sync(self, large_motor, small_motor):
+        global asyncio_loop
+        if not (asyncio_loop and asyncio_loop.is_running() and self.websocket):
+            return
+
+        now = time.time()
+        l, s = int(large_motor), int(small_motor)
+
+        if l == 0 and s == 0:
+            if self.last_rumble_values != (0, 0):
+                self.last_rumble_values = (0, 0)
+                self.last_rumble_sent_time = now
+                asyncio_loop.call_soon_threadsafe(
+                    lambda: asyncio.create_task(self.send_rumble_async(0, 0))
+                )
+            return
+
+        diff = max(abs(l - self.last_rumble_values[0]), abs(s - self.last_rumble_values[1]))
+        if (now - self.last_rumble_sent_time >= 0.05) or (diff >= 35):
+            self.last_rumble_values = (l, s)
+            self.last_rumble_sent_time = now
+            asyncio_loop.call_soon_threadsafe(
+                lambda: asyncio.create_task(self.send_rumble_async(l, s))
+            )
+
+    async def send_rumble_async(self, large_motor, small_motor):
+        if not self.websocket:
+            return
+        msg = json.dumps({
+            "type": "rumble",
+            "player_id": self.player_id,
+            "large": int(large_motor),
+            "small": int(small_motor)
+        })
+        try:
+            await self.websocket.send(msg)
+        except Exception:
+            pass
 
     def _set_btn(self, button_enum, is_pressed):
         if not self.gamepad:
@@ -326,7 +325,7 @@ class ControllerManager:
             self._set_btn(vg.XUSB_BUTTON.XUSB_GAMEPAD_LEFT_SHOULDER, gear_down)
             self._set_btn(vg.XUSB_BUTTON.XUSB_GAMEPAD_START, pause)
             self.gamepad.update()
-        elif HAVE_PYNPUT and kb:
+        elif HAVE_PYNPUT and kb and self.player_id == 1:
             self._set_key('w', gas > 0.2)
             self._set_key('s', brake > 0.2)
             self._set_key('a', steer < -0.2)
@@ -379,8 +378,7 @@ class ControllerManager:
             self._set_btn(vg.XUSB_BUTTON.XUSB_GAMEPAD_GUIDE, bool(data.get("btn_guide")))
 
             self.gamepad.update()
-        elif HAVE_PYNPUT and kb:
-            # Fallback básico para teclado
+        elif HAVE_PYNPUT and kb and self.player_id == 1:
             self._set_key('w', ls_y > 0.3)
             self._set_key('s', ls_y < -0.3)
             self._set_key('a', ls_x < -0.3)
@@ -408,20 +406,67 @@ class ControllerManager:
             self.kb_pressed.clear()
 
 
-controller = ControllerManager()
+class MultiplayerManager:
+    """Aloca e gerencia até 4 jogadores simultâneos conectados por smartphone."""
+
+    def __init__(self, max_players=4):
+        self.max_players = max_players
+        self.slots = [None] * max_players
+        self.ws_to_player = {}
+
+    def allocate(self, websocket):
+        for idx in range(self.max_players):
+            if self.slots[idx] is None:
+                p_id = idx + 1
+                ctrl = PlayerController(p_id)
+                ctrl.websocket = websocket
+                self.slots[idx] = ctrl
+                self.ws_to_player[websocket] = ctrl
+                return ctrl
+        return None
+
+    def release(self, websocket):
+        if websocket in self.ws_to_player:
+            ctrl = self.ws_to_player[websocket]
+            idx = ctrl.player_id - 1
+            ctrl.reset_all()
+            if ctrl.gamepad:
+                try:
+                    del ctrl.gamepad
+                except Exception:
+                    pass
+            self.slots[idx] = None
+            del self.ws_to_player[websocket]
+            print(f"[-] Player {ctrl.player_id} desconectado (Slot liberado).")
+
+    def get_player(self, websocket):
+        return self.ws_to_player.get(websocket)
+
+
+multiplayer_mgr = MultiplayerManager(max_players=4)
 
 
 # --- HANDLER WEBSOCKET (COMUM PARA WS E WSS) ---
 async def ws_handler(websocket):
     client_ip = websocket.remote_address[0]
-    print(f"\n[+] Celular conectado! IP: {client_ip}")
+    ctrl = multiplayer_mgr.allocate(websocket)
 
+    if not ctrl:
+        print(f"\n[!] Conexão recusada para {client_ip}: Todos os 4 slots de jogadores estão ocupados.")
+        await websocket.send(json.dumps({
+            "type": "error",
+            "message": "Servidor cheio! Máximo de 4 jogadores simultâneos atingido."
+        }))
+        return
+
+    print(f"\n[+] Celular conectado! IP: {client_ip} ➔ ATRIBUÍDO: PLAYER {ctrl.player_id}")
     connected_clients.add(websocket)
 
     await websocket.send(json.dumps({
         "type": "welcome",
+        "player_id": ctrl.player_id,
         "has_gamepad": HAVE_VGAMEPAD,
-        "default_mode": controller.mode
+        "default_mode": ctrl.mode
     }))
 
     last_stats = time.time()
@@ -436,9 +481,9 @@ async def ws_handler(websocket):
             current_type = msg_type
 
             if msg_type == "input":
-                controller.handle_wheel_input(data)
+                ctrl.handle_wheel_input(data)
             elif msg_type == "gamepad_input":
-                controller.handle_gamepad_input(data)
+                ctrl.handle_gamepad_input(data)
             elif msg_type == "mouse_move":
                 MouseKeyboardHandler.move(data.get("dx", 0), data.get("dy", 0))
             elif msg_type == "mouse_click":
@@ -452,16 +497,17 @@ async def ws_handler(websocket):
 
             now = time.time()
             if now - last_stats >= 1.0:
+                p_tag = f"[P{ctrl.player_id}]"
                 if current_type == "input":
                     steer = float(data.get("steer", 0.0)) * 100
                     gas = float(data.get("gas", 0.0)) * 100
                     brake = float(data.get("brake", 0.0)) * 100
                     steer_str = f"◀ {abs(steer):4.1f}%" if steer < -1 else (f"{steer:4.1f}% ▶" if steer > 1 else "  CENTRO ")
-                    print(f"\r[VOLANTE] {steer_str} | Gás: {gas:3.0f}% | Freio: {brake:3.0f}% | {packet_count} pps ", end="", flush=True)
+                    print(f"\r{p_tag} [VOLANTE] {steer_str} | Gás: {gas:3.0f}% | Freio: {brake:3.0f}% | {packet_count} pps ", end="", flush=True)
                 else:
                     ls_x = float(data.get("ls_x", 0.0))
                     ls_y = float(data.get("ls_y", 0.0))
-                    print(f"\r[GAMEPAD] LS: ({ls_x:+.2f}, {ls_y:+.2f}) | LT: {float(data.get('lt', 0)):.1f} | RT: {float(data.get('rt', 0)):.1f} | {packet_count} pps ", end="", flush=True)
+                    print(f"\r{p_tag} [GAMEPAD] LS: ({ls_x:+.2f}, {ls_y:+.2f}) | LT: {float(data.get('lt', 0)):.1f} | RT: {float(data.get('rt', 0)):.1f} | {packet_count} pps ", end="", flush=True)
 
                 packet_count = 0
                 last_stats = now
@@ -470,8 +516,7 @@ async def ws_handler(websocket):
         pass
     finally:
         connected_clients.discard(websocket)
-        print(f"\n[-] Celular desconectado ({client_ip}). Controles zerados.")
-        controller.reset_all()
+        multiplayer_mgr.release(websocket)
 
 
 async def main():

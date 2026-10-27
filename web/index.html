@@ -212,6 +212,26 @@
       color: #fff;
     }
 
+    /* BADGE DE IDENTIFICAÇÃO DO JOGADOR (MULTIPLAYER LOCAL) */
+    .player-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      color: #fff;
+      background: #2ed573;
+      box-shadow: 0 0 10px rgba(46, 213, 115, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .player-badge.p1 { background: #2ed573; color: #fff; box-shadow: 0 0 10px rgba(46, 213, 115, 0.6); }
+    .player-badge.p2 { background: #00f2fe; color: #000; box-shadow: 0 0 10px rgba(0, 242, 254, 0.6); }
+    .player-badge.p3 { background: #ffa502; color: #fff; box-shadow: 0 0 10px rgba(255, 165, 2, 0.6); }
+    .player-badge.p4 { background: #ff4757; color: #fff; box-shadow: 0 0 10px rgba(255, 71, 87, 0.6); }
+
     /* ============================================================
        ESTILOS DO MODO TOUCHPAD / MOUSE & TECLADO
        ============================================================ */
@@ -1144,6 +1164,7 @@
     </div>
 
     <div class="top-actions">
+      <div class="player-badge p1" id="player-badge" style="display:none;" title="Número do Jogador">P1</div>
       <div class="status-badge" id="btn-status-badge" style="cursor: pointer;" title="Ver detalhes da conexão">
         <span class="status-dot" id="status-dot"></span>
         <span id="status-text">Conectando...</span>
@@ -1642,6 +1663,7 @@
     const touchpadView = document.getElementById('touchpad-view');
     const btnQuickProfile = document.getElementById('btn-quick-profile');
     const currentProfileLabel = document.getElementById('current-profile-label');
+    const playerBadge = document.getElementById('player-badge');
     const statusDot = document.getElementById('status-dot');
     const statusText = document.getElementById('status-text');
     const httpsBanner = document.getElementById('https-banner');
@@ -2422,8 +2444,29 @@
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          if (data.type === "rumble") {
+          if (data.type === "welcome") {
+            const pId = data.player_id || 1;
+            if (playerBadge) {
+              playerBadge.textContent = `P${pId}`;
+              playerBadge.className = `player-badge p${pId}`;
+              playerBadge.style.display = 'inline-flex';
+            }
+            if (currentConnMode === "wifi") {
+              statusText.textContent = `P${pId} Online`;
+            }
+            // Feedback tátil: pulsa N vezes indicando o número do Player
+            if (navigator.vibrate) {
+              const pulses = [];
+              for (let i = 0; i < pId; i++) {
+                pulses.push(45);
+                if (i < pId - 1) pulses.push(65);
+              }
+              navigator.vibrate(pulses);
+            }
+          } else if (data.type === "rumble") {
             handleGameRumble(data.large, data.small);
+          } else if (data.type === "error") {
+            alert(data.message || "Erro do servidor");
           }
         } catch (e) {}
       };
