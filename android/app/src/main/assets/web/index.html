@@ -339,6 +339,92 @@
       box-shadow: 0 0 15px var(--accent-color);
     }
 
+    /* ============================================================
+       PAINEL DE INSTRUMENTOS / TELEMETRIA DE CORRIDA
+       ============================================================ */
+    .telemetry-cluster {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      background: rgba(14, 10, 12, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      padding: 4px 14px;
+      margin-bottom: 2px;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+    }
+    .shift-lights {
+      display: flex;
+      gap: 4px;
+    }
+    .shift-lights .led {
+      width: 11px;
+      height: 6px;
+      border-radius: 3px;
+      background: #231b1f;
+      transition: all 0.06s ease;
+    }
+    .shift-lights .led.green.on { background: #2ed573; box-shadow: 0 0 8px #2ed573; }
+    .shift-lights .led.yellow.on { background: #ffa502; box-shadow: 0 0 8px #ffa502; }
+    .shift-lights .led.red.on { background: #ff4757; box-shadow: 0 0 10px #ff4757; }
+    .shift-lights.flash .led.red.on { animation: flashLed 0.1s infinite alternate; }
+    @keyframes flashLed { from { opacity: 0.2; } to { opacity: 1; } }
+
+    .telemetry-dash-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      min-width: 180px;
+    }
+    .telem-item {
+      font-size: 13px;
+      font-weight: 900;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+    }
+    .telem-unit {
+      font-size: 9px;
+      color: #94a3b8;
+      font-weight: 700;
+      margin-left: 2px;
+    }
+    .telem-gear {
+      font-size: 18px;
+      font-weight: 900;
+      color: var(--accent-color);
+      background: rgba(255, 255, 255, 0.06);
+      padding: 1px 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    /* TOAST FLUTUANTE (NOTIFICAÇÃO DE AUTO-PROFILE) */
+    #rw-toast {
+      position: fixed;
+      top: 48px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-25px);
+      background: rgba(18, 14, 16, 0.95);
+      border: 1px solid var(--accent-color);
+      color: #fff;
+      padding: 8px 18px;
+      border-radius: 25px;
+      font-size: 12px;
+      font-weight: 800;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.8);
+      z-index: 3000;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    #rw-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
     .top-actions {
       display: flex;
       align-items: center;
@@ -1089,6 +1175,7 @@
   </style>
 </head>
 <body>
+  <div id="rw-toast">🎮 Notificação</div>
 
   <!-- ==========================================
        TELA DE BLOQUEIO VERTICAL (PORTRAIT GUARD)
@@ -1313,6 +1400,20 @@
         </div>
       </div>
 
+      <!-- Cluster de Telemetria Digital de Corrida (RPM, Marcha e Velocidade) -->
+      <div id="telemetry-cluster" class="telemetry-cluster">
+        <div class="shift-lights" id="shift-lights">
+          <span class="led green"></span><span class="led green"></span><span class="led green"></span>
+          <span class="led yellow"></span><span class="led yellow"></span><span class="led yellow"></span>
+          <span class="led red"></span><span class="led red"></span><span class="led red"></span>
+        </div>
+        <div class="telemetry-dash-row">
+          <div class="telem-item"><span id="telem-speed-val">0</span><span class="telem-unit">KM/H</span></div>
+          <div class="telem-gear" id="telem-gear-val">N</div>
+          <div class="telem-item"><span id="telem-rpm-val">0</span><span class="telem-unit">RPM</span></div>
+        </div>
+      </div>
+
       <div class="wheel-box customizable-ctrl" id="ctrl-wheel-wheelbox" data-ctrl-id="wheel-box" data-name="🏎️ Volante Esportivo">
         <svg id="wheel-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
           <circle cx="100" cy="100" r="90" fill="none" stroke="#222834" stroke-width="16" />
@@ -1403,6 +1504,7 @@
       <div class="config-nav">
         <div class="config-nav-btn active" data-tab="tab-sens">🎛️ Sensibilidade</div>
         <div class="config-nav-btn" data-tab="tab-profiles">📂 Perfis</div>
+        <div class="config-nav-btn" data-tab="tab-telemetry">🏎️ Telemetria</div>
         <div class="config-nav-btn" data-tab="tab-theme">🎨 Temas & Cores</div>
         <div class="config-nav-btn" data-tab="tab-buttons">🔘 Botões Visíveis</div>
       </div>
@@ -1512,6 +1614,38 @@
           <button class="edit-bar-btn" id="btn-reset-default-profiles" style="font-size: 11px; padding: 6px; color: #a4b0be;">
             🔄 Restaurar Perfis Originais de Fábrica
           </button>
+        </div>
+      </div>
+
+      <!-- ABA 3: TELEMETRIA & DETECÇÃO AUTOMÁTICA -->
+      <div class="config-tab-content" id="tab-telemetry">
+        <div style="font-size: 13px; font-weight: 700; color: var(--accent-color);">🏎️ Dashboard de Telemetria ao Vivo:</div>
+        <p style="font-size: 12px; color: #94a3b8; line-height: 1.4;">
+          Exibe Conta-Giros (RPM), Shift Lights de F1, Velocímetro e Indicador de Marcha direto na sua tela do volante via dados UDP do jogo.
+        </p>
+
+        <label class="toggle-item">
+          <input type="checkbox" id="chk-telemetry-enabled" checked> Exibir Cluster de Telemetria no Volante
+        </label>
+
+        <label class="toggle-item">
+          <input type="checkbox" id="chk-auto-switch-enabled" checked> 🔄 Auto-Troca de Perfil ao abrir Jogos no Windows
+        </label>
+
+        <div style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 12px; margin-top: 6px; display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 12px; font-weight: 800; color: #2ed573;">📌 Como Ativar a Telemetria nos Jogos:</span>
+          <div style="font-size: 11px; color: #cbd5e1; line-height: 1.5;">
+            <b>• Forza Horizon 4 / 5 / Motorsport:</b><br>
+            Acesse <i>Opções > HUD e Jogabilidade</i> no jogo, vá até o final e ative <b>Data Out</b>:
+            <ul style="margin: 4px 0 0 16px; padding: 0;">
+              <li>Endereço IP: <code>127.0.0.1</code> (ou IP do seu PC)</li>
+              <li>Porta: <code>5300</code></li>
+            </ul>
+          </div>
+          <div style="font-size: 11px; color: #cbd5e1; line-height: 1.5; margin-top: 4px;">
+            <b>• Auto-Troca de Perfis:</b><br>
+            O servidor detecta automaticamente jogos como <i>Forza, The Crew, Assetto Corsa, F1, GTA V, CS2, Valorant</i> e aplica a melhor configuração sem você precisar mexer em nada!
+          </div>
         </div>
       </div>
 
@@ -1724,6 +1858,69 @@
     const pickerCustomColor = document.getElementById('picker-custom-color');
     const rngGlow = document.getElementById('rng-glow');
     const lblGlowVal = document.getElementById('lbl-glow-val');
+
+    // Elementos de Telemetria e Auto-Switch
+    const telemetryCluster = document.getElementById('telemetry-cluster');
+    const telemSpeedVal = document.getElementById('telem-speed-val');
+    const telemGearVal = document.getElementById('telem-gear-val');
+    const telemRpmVal = document.getElementById('telem-rpm-val');
+    const shiftLeds = document.querySelectorAll('#shift-lights .led');
+    const rwToast = document.getElementById('rw-toast');
+    const chkTelemetryEnabled = document.getElementById('chk-telemetry-enabled');
+    const chkAutoSwitchEnabled = document.getElementById('chk-auto-switch-enabled');
+
+    let toastTimer = null;
+    function showToast(msg) {
+      if (!rwToast) return;
+      rwToast.textContent = msg;
+      rwToast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        rwToast.classList.remove('show');
+      }, 3500);
+    }
+
+    function updateTelemetryDisplay(telem) {
+      if (!telemetryCluster) return;
+      if (chkTelemetryEnabled && !chkTelemetryEnabled.checked) {
+        telemetryCluster.style.display = 'none';
+        return;
+      }
+      telemetryCluster.style.display = 'flex';
+
+      // Velocidade
+      const speedKmh = Math.round(telem.speed_kmh || 0);
+      if (telemSpeedVal) telemSpeedVal.textContent = speedKmh;
+
+      // Marcha
+      let gearStr = "N";
+      const g = telem.gear;
+      if (g === 0) gearStr = "R";
+      else if (g === 11 || g === 255 || g < 0) gearStr = "N";
+      else gearStr = String(g);
+      if (telemGearVal) telemGearVal.textContent = gearStr;
+
+      // RPM
+      const rpm = Math.round(telem.rpm || 0);
+      if (telemRpmVal) telemRpmVal.textContent = rpm;
+
+      // Shift Lights (9 LEDs: 3 verdes, 3 amarelos, 3 vermelhos)
+      const maxRpm = telem.max_rpm || 7500;
+      const idleRpm = telem.idle_rpm || 800;
+      const ratio = Math.max(0, Math.min(1, (rpm - idleRpm) / Math.max(1, maxRpm - idleRpm)));
+
+      const activeLedsCount = Math.floor(ratio * shiftLeds.length);
+      const isRedline = ratio >= 0.95;
+
+      shiftLeds.forEach((led, idx) => {
+        if (isRedline) {
+          // Pisca todos no corte de giro
+          led.classList.toggle('active', Math.floor(Date.now() / 100) % 2 === 0);
+        } else {
+          led.classList.toggle('active', idx < activeLedsCount);
+        }
+      });
+    }
 
     // --- TEMAS PRÉ-DEFINIDOS ---
     const THEMES = {
@@ -2462,6 +2659,15 @@
                 if (i < pId - 1) pulses.push(65);
               }
               navigator.vibrate(pulses);
+            }
+          } else if (data.type === "telemetry") {
+            updateTelemetryDisplay(data);
+          } else if (data.type === "auto_profile_switch") {
+            if (chkAutoSwitchEnabled && !chkAutoSwitchEnabled.checked) return;
+            if (data.profile_id) {
+              applyProfile(data.profile_id, true);
+              showToast(`🎮 Jogo Detectado: ${data.game_name} → Perfil Ativado!`);
+              if (navigator.vibrate) navigator.vibrate(35);
             }
           } else if (data.type === "rumble") {
             handleGameRumble(data.large, data.small);

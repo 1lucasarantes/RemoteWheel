@@ -223,6 +223,181 @@ connected_clients = set()
 asyncio_loop = None
 
 
+async def broadcast_to_all(message_str):
+    """Envia uma mensagem JSON para todos os celulares conectados."""
+    if not connected_clients:
+        return
+    for ws in list(connected_clients):
+        try:
+            await ws.send(message_str)
+        except Exception:
+            pass
+
+
+# --- MÓDULO DE TELEMETRIA UDP DE CORRIDA (FORZA HORIZON, MOTORSPORT, F1) ---
+import struct
+
+TELEMETRY_PORT = 5300
+
+
+def parse_forza_telemetry(data):
+    """Decodifica pacotes UDP do protocolo padrão Forza DataOut (311 ou 324 bytes)."""
+    if len(data) < 311:
+        return None
+    try:
+        is_race_on = struct.unpack_from('<i', data, 0)[0]
+        max_rpm = struct.unpack_from('<f', data, 8)[0]
+        idle_rpm = struct.unpack_from('<f', data, 12)[0]
+        rpm = struct.unpack_from('<f', data, 16)[0]
+
+        # Velocidade em metros por segundo -> converter para km/h
+        speed_ms = struct.unpack_from('<f', data, 244)[0]
+        speed_kmh = max(0, speed_ms * 3.6)
+
+        # Marcha: 0 = Ré, 1 a 10 = Marchas à frente, 11+ = Neutro
+        gear = 0
+        if len(data) >= 324:
+            gear = struct.unpack_from('<B', data, 318)[0]
+        elif len(data) >= 311:
+            gear = struct.unpack_from('<B', data, 305)[0]
+
+        return {
+            "type": "telemetry",
+            "is_race_on": bool(is_race_on),
+            "rpm": int(rpm),
+            "max_rpm": int(max_rpm if max_rpm > 1000 else 8000),
+            "speed": int(speed_kmh),
+            "gear": int(gear)
+        }
+    except Exception:
+        return None
+
+
+def telemetry_udp_listener():
+    """Escuta dados de telemetria UDP enviados por jogos de corrida e repassa aos celulares."""
+    global asyncio_loop, connected_clients
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sock.bind(("0.0.0.0", TELEMETRY_PORT))
+        print(f"[OK] Módulo de Telemetria UDP ativo na porta {TELEMETRY_PORT} (Forza / F1 / Simulação)!")
+    except Exception as e:
+        print(f"[!] Não foi possível iniciar Telemetria UDP na porta {TELEMETRY_PORT}: {e}")
+        return
+
+    last_send = 0.0
+
+    while True:
+        try:
+            data, addr = sock.recvfrom(1024)
+            now = time.time()
+            # Limita transmissão a ~30 vezes por segundo para fluidez sem sobrecarga
+            if now - last_send < 0.033:
+                continue
+
+            telemetry = parse_forza_telemetry(data)
+            if telemetry and connected_clients and asyncio_loop:
+                last_send = now
+                msg = json.dumps(telemetry)
+                asyncio_loop.call_soon_threadsafe(
+                    lambda m=msg: asyncio.create_task(broadcast_to_all(m))
+                )
+        except Exception:
+            time.sleep(0.01)
+
+
+# --- MÓDULO DE DETECÇÃO AUTOMÁTICA DE JOGOS (AUTO-PROFILE SWITCH) ---
+GAME_PROFILES_MAP = {
+    # Jogos de Corrida -> Perfil "racing" (Volante)
+    "forzahorizon5.exe": "racing",
+    "forzahorizon4.exe": "racing",
+    "forzamotorsport.exe": "racing",
+    "thecrew2.exe": "racing",
+    "thecrewmotorfest.exe": "racing",
+    "f1_23.exe": "racing",
+    "f1_24.exe": "racing",
+    "f1_22.exe": "racing",
+    "assettocorsa.exe": "racing",
+    "acs.exe": "racing",
+    "needforspeed.exe": "racing",
+    "dirt4.exe": "racing",
+    "dirtrally2.exe": "racing",
+    "beamng.drive.x64.exe": "racing",
+    "eurotrucks2.exe": "racing",
+
+    # Jogos de Ação e Tiro -> Perfil "shooter" (Gamepad + Gyro Aim)
+    "gta5.exe": "shooter",
+    "cyberpunk2077.exe": "shooter",
+    "cs2.exe": "shooter",
+    "cod.exe": "shooter",
+    "fortniteclient-win64-shipping.exe": "shooter",
+    "rdr2.exe": "shooter",
+
+    # Jogos de Esporte e Casuais -> Perfil "casual" (Gamepad Clássico)
+    "fifa23.exe": "casual",
+    "fc24.exe": "casual",
+    "fc25.exe": "casual",
+    "rocketleague.exe": "casual",
+    "fallguys_client.exe": "casual"
+}
+
+
+def get_active_process_name():
+    """Identifica o executável em primeiro plano no Windows via API nativa ctypes."""
+    if sys.platform != "win32":
+        return None
+    try:
+        import ctypes.wintypes
+        hwnd = ctypes.windll.user32.GetForegroundWindow()
+        if not hwnd:
+            return None
+        pid = ctypes.wintypes.DWORD()
+        ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        if not pid.value:
+            return None
+        h_proc = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid.value)
+        if not h_proc:
+            return None
+        buf = ctypes.create_unicode_buffer(512)
+        size = ctypes.wintypes.DWORD(512)
+        res = ctypes.windll.kernel32.QueryFullProcessImageNameW(h_proc, 0, buf, ctypes.byref(size))
+        ctypes.windll.kernel32.CloseHandle(h_proc)
+        if res:
+            return os.path.basename(buf.value).lower()
+    except Exception:
+        pass
+    return None
+
+
+def auto_game_detector_loop():
+    """Monitora qual jogo está ativo e solicita a troca de perfil automática no celular."""
+    global asyncio_loop, connected_clients
+    last_detected_game = None
+
+    while True:
+        time.sleep(2.0)
+        if not connected_clients:
+            continue
+
+        try:
+            exe_name = get_active_process_name()
+            if exe_name and exe_name != last_detected_game:
+                if exe_name in GAME_PROFILES_MAP:
+                    profile_id = GAME_PROFILES_MAP[exe_name]
+                    last_detected_game = exe_name
+                    print(f"\n[AUTO-PROFILE] Jogo detectado: {exe_name} ➔ Alternando para perfil: {profile_id}")
+                    if asyncio_loop:
+                        msg = json.dumps({
+                            "type": "auto_profile_switch",
+                            "profile_id": profile_id,
+                            "game_name": exe_name
+                        })
+                        asyncio_loop.call_soon_threadsafe(
+                            lambda m=msg: asyncio.create_task(broadcast_to_all(m))
+                        )
+        except Exception:
+            pass
+
+
 # --- GERENCIADOR DE JOGADORES MULTIPLAYER (ATÉ 4 CONTROLES XBOX VIRTUAIS) ---
 class PlayerController:
     """Gerencia um controle virtual individual de Xbox 360 para um Player (P1 a P4)."""
@@ -565,6 +740,10 @@ async def main():
     print(f"\nServidores WebSocket ativos nas portas {WS_PORT} (WS) e {WSS_PORT} (WSS)...")
     print("=" * 66 + "\n")
 
+    # Inicia threads em segundo plano para Telemetria UDP e Detecção de Jogos
+    threading.Thread(target=telemetry_udp_listener, daemon=True).start()
+    threading.Thread(target=auto_game_detector_loop, daemon=True).start()
+
     # Inicia servidores WebSocket
     await websockets.serve(ws_handler, "0.0.0.0", WS_PORT)
     if ssl_ctx:
@@ -578,5 +757,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         print("\n[!] Encerrando Remote Wheel...")
-        controller.reset_all()
         sys.exit(0)
