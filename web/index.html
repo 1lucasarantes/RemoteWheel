@@ -995,66 +995,97 @@
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(10, 8, 9, 0.94);
+      background: rgba(10, 8, 9, 0.88);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
       z-index: 2000;
       align-items: center;
       justify-content: center;
-      padding: 16px;
+      padding: clamp(6px, 1.5vh, 16px);
+      box-sizing: border-box;
     }
     .modal-sheet {
-      background: var(--card-bg);
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: #140e12;
+      border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: 18px;
-      max-width: 520px;
+      max-width: 580px;
       width: 100%;
-      max-height: 96vh;
+      max-height: 94vh;
+      height: 94vh;
       display: flex;
       flex-direction: column;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.85);
       overflow: hidden;
+      box-sizing: border-box;
     }
     .modal-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      padding: 14px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding: clamp(8px, 1.8vh, 14px) clamp(12px, 2.5vw, 20px);
+      flex-shrink: 0;
     }
     .modal-title {
-      font-size: 18px;
+      font-size: clamp(14px, 2vw, 17px);
       font-weight: 800;
       color: var(--accent-color);
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .config-nav {
       display: flex;
-      background: #140e11;
+      background: #0f0a0d;
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      flex-shrink: 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .config-nav::-webkit-scrollbar {
+      display: none;
     }
     .config-nav-btn {
       flex: 1;
-      padding: 10px 8px;
-      text-align: center;
-      font-size: 12px;
+      min-width: 80px;
+      padding: clamp(8px, 1.5vh, 12px) 6px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: clamp(10.5px, 1.5vw, 12px);
       font-weight: 700;
-      color: #998c90;
+      color: #94a3b8;
       cursor: pointer;
       border-bottom: 2px solid transparent;
-      transition: all 0.2s;
+      white-space: nowrap;
+      transition: all 0.18s ease;
+    }
+    .config-nav-btn svg {
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+      fill: currentColor;
     }
     .config-nav-btn.active {
       color: #ffffff;
       border-bottom-color: var(--accent-color);
-      background: rgba(255, 255, 255, 0.03);
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .config-nav-btn.active svg {
+      fill: var(--accent-color);
     }
 
     .config-tab-content {
-      padding: 16px 20px;
+      padding: clamp(10px, 2vh, 16px) clamp(12px, 2.5vw, 20px);
       overflow-y: auto;
       flex: 1;
       display: none;
       flex-direction: column;
-      gap: 16px;
+      gap: 12px;
+      box-sizing: border-box;
     }
     .config-tab-content.active {
       display: flex;
@@ -1155,22 +1186,148 @@
     }
 
     .modal-footer {
-      padding: 12px 20px;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding: clamp(8px, 1.5vh, 12px) clamp(12px, 2.5vw, 20px);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-end;
+      flex-shrink: 0;
+      background: #0f0a0d;
     }
     .save-btn {
       background: var(--primary-color);
       color: #fff;
       border: none;
-      padding: 10px 24px;
-      border-radius: 12px;
-      font-size: 14px;
+      padding: 9px 24px;
+      border-radius: 10px;
+      font-size: clamp(12px, 1.6vw, 13px);
       font-weight: 800;
       cursor: pointer;
       box-shadow: 0 0 15px var(--primary-glow);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.12s ease;
+    }
+    .save-btn:active {
+      transform: scale(0.97);
+    }
+    .save-btn svg {
+      width: 15px;
+      height: 15px;
+      fill: currentColor;
+    }
+
+    /* ESTILOS MODERNOS PARA ITENS DA ABA PERFIS */
+    .profile-card-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      gap: 8px;
+    }
+    .profile-card-item.active {
+      background: rgba(9, 132, 227, 0.16);
+      border: 1px solid rgba(9, 132, 227, 0.5);
+    }
+    .profile-card-item:hover {
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    .profile-title-col {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex: 1;
+    }
+    .profile-icon-wrap {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.06);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .profile-icon-wrap svg {
+      width: 15px;
+      height: 15px;
+      fill: #cbd5e1;
+    }
+    .profile-card-item.active .profile-icon-wrap {
+      background: rgba(9, 132, 227, 0.35);
+    }
+    .profile-card-item.active .profile-icon-wrap svg {
+      fill: #00f2fe;
+    }
+    .profile-name-text {
+      font-size: 12px;
+      font-weight: 700;
+      color: #e2e8f0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .profile-active-tag {
+      font-size: 9px;
+      font-weight: 800;
+      background: #0984e3;
+      color: #fff;
+      padding: 2px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      margin-left: 6px;
+      flex-shrink: 0;
+    }
+    .profile-btn-use {
+      background: #0984e3;
+      color: #fff;
+      border: none;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.12s;
+      flex-shrink: 0;
+    }
+    .profile-btn-use:active {
+      transform: scale(0.95);
+      background: #076fc0;
+    }
+    .profile-btn-del {
+      background: rgba(235, 47, 6, 0.15);
+      color: #ff6b6b;
+      border: 1px solid rgba(235, 47, 6, 0.3);
+      width: 26px;
+      height: 26px;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.12s;
+    }
+    .profile-btn-del:active {
+      background: #eb2f06;
+      color: #fff;
+    }
+    .profile-btn-del svg {
+      width: 12px;
+      height: 12px;
+      fill: currentColor;
     }
   </style>
 </head>
@@ -1497,16 +1654,36 @@
   <div id="edit-modal">
     <div class="modal-sheet">
       <div class="modal-header">
-        <div class="modal-title">Configurações & Estética ⚙️</div>
-        <div style="cursor: pointer; font-size: 20px;" id="close-edit-modal">✕</div>
+        <div class="modal-title">
+          <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; fill: currentColor;"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+          Configurações & Estética
+        </div>
+        <div style="cursor: pointer; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.06); color: #cbd5e1;" id="close-edit-modal">
+          <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; fill: currentColor;"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </div>
       </div>
 
       <div class="config-nav">
-        <div class="config-nav-btn active" data-tab="tab-sens">🎛️ Sensibilidade</div>
-        <div class="config-nav-btn" data-tab="tab-profiles">📂 Perfis</div>
-        <div class="config-nav-btn" data-tab="tab-telemetry">🏎️ Telemetria</div>
-        <div class="config-nav-btn" data-tab="tab-theme">🎨 Temas & Cores</div>
-        <div class="config-nav-btn" data-tab="tab-buttons">🔘 Botões Visíveis</div>
+        <div class="config-nav-btn active" data-tab="tab-sens">
+          <svg viewBox="0 0 24 24"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>
+          <span>Sensibilidade</span>
+        </div>
+        <div class="config-nav-btn" data-tab="tab-profiles">
+          <svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
+          <span>Perfis</span>
+        </div>
+        <div class="config-nav-btn" data-tab="tab-telemetry">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z"/></svg>
+          <span>Telemetria</span>
+        </div>
+        <div class="config-nav-btn" data-tab="tab-theme">
+          <svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l1.9-1.9C9.23 19.64 10.57 20 12 20c4.97 0 9-4.03 9-9s-4.03-9-9-9zm0 15c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg>
+          <span>Temas</span>
+        </div>
+        <div class="config-nav-btn" data-tab="tab-buttons">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/></svg>
+          <span>Botões</span>
+        </div>
       </div>
 
       <!-- ABA 1: SENSIBILIDADE -->
@@ -1596,23 +1773,26 @@
 
       <!-- ABA 2: PERFIS DE JOGO -->
       <div class="config-tab-content" id="tab-profiles">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-          <span style="font-size: 13px; font-weight: 700; color: #a09095;">Seus Perfis Salvos:</span>
-          <button class="hud-mini-btn" id="btn-create-new-profile" style="background:#10ac84; color:#fff; border:none; padding:4px 10px; font-size:11px; border-radius:6px; cursor:pointer;">
-            ➕ Novo Perfil
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+          <span style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Seus Perfis Salvos:</span>
+          <button class="hud-mini-btn" id="btn-create-new-profile" style="background:#10ac84; color:#fff; border:none; padding:5px 12px; font-size:11.5px; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:5px; font-weight:700;">
+            <svg viewBox="0 0 24 24" style="width:13px; height:13px; fill:currentColor;"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            Novo Perfil
           </button>
         </div>
 
-        <div id="profiles-list-container" style="display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto;">
+        <div id="profiles-list-container" style="display: flex; flex-direction: column; gap: 8px; flex: 1; overflow-y: auto;">
           <!-- Lista de Perfis gerada via JS -->
         </div>
 
-        <div style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; margin-top: auto;">
-          <button class="save-btn" id="btn-save-current-to-active-profile" style="font-size: 12px; padding: 10px; background: #2ed573;">
-            💾 Salvar Configurações Atuais no Perfil Ativo
+        <div style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; margin-top: auto; flex-shrink: 0;">
+          <button class="save-btn" id="btn-save-current-to-active-profile" style="font-size: 12px; padding: 10px; background: #2ed573; box-shadow: 0 0 12px rgba(46, 213, 115, 0.4); color: #0a1f12; font-weight: 800;">
+            <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; fill: currentColor;"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
+            Salvar Configurações Atuais no Perfil Ativo
           </button>
-          <button class="edit-bar-btn" id="btn-reset-default-profiles" style="font-size: 11px; padding: 6px; color: #a4b0be;">
-            🔄 Restaurar Perfis Originais de Fábrica
+          <button class="edit-bar-btn" id="btn-reset-default-profiles" style="font-size: 11px; padding: 6px; color: #a4b0be; display: inline-flex; align-items: center; justify-content: center; gap: 5px;">
+            <svg viewBox="0 0 24 24" style="width: 12px; height: 12px; fill: currentColor;"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+            Restaurar Perfis Originais de Fábrica
           </button>
         </div>
       </div>
@@ -1730,7 +1910,10 @@
       </div>
 
       <div class="modal-footer">
-        <button class="save-btn" id="btn-save-layout">SALVAR & APLICAR</button>
+        <button class="save-btn" id="btn-save-layout">
+          <svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
+          SALVAR & APLICAR
+        </button>
       </div>
     </div>
   </div>
@@ -3191,56 +3374,74 @@
 
       const activeId = localStorage.getItem('rw_active_profile_id') || 'racing';
 
+      // Ícones SVG temáticos limpos por tipo de perfil
+      const getProfileSvg = (id) => {
+        if (id === 'racing' || id.includes('forza') || id.includes('crew') || id.includes('corrida')) {
+          return `<svg viewBox="0 0 24 24"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>`;
+        }
+        if (id === 'shooter' || id.includes('tiro') || id.includes('gta') || id.includes('cs') || id.includes('fps')) {
+          return `<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>`;
+        }
+        return `<svg viewBox="0 0 24 24"><path d="M15 7.5V2H9v5.5l3 3 3-3zM7.5 9H2v6h5.5l3-3-3-3zM9 16.5V22h6v-5.5l-3-3-3 3zM16.5 9l-3 3 3 3H22V9h-5.5z"/></svg>`;
+      };
+
       Object.values(userProfiles).forEach(p => {
         const item = document.createElement('div');
         const isActive = p.id === activeId;
-        item.style.cssText = `
-          display: flex; align-items: center; justify-content: space-between;
-          background: ${isActive ? 'rgba(9, 132, 227, 0.25)' : 'rgba(255,255,255,0.03)'};
-          border: 1px solid ${isActive ? '#0984e3' : 'rgba(255,255,255,0.1)'};
-          padding: 8px 12px; border-radius: 10px; cursor: pointer; transition: all 0.15s ease;
+        item.className = `profile-card-item ${isActive ? 'active' : ''}`;
+
+        // Remove emojis duplicados do texto original caso já contenha para ficar visualmente limpo com o SVG
+        const cleanName = p.name.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
+
+        item.innerHTML = `
+          <div class="profile-title-col">
+            <div class="profile-icon-wrap">
+              ${getProfileSvg(p.id)}
+            </div>
+            <div class="profile-name-text">
+              ${cleanName}
+            </div>
+            ${isActive ? '<span class="profile-active-tag">Ativo</span>' : ''}
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <button class="profile-btn-use">
+              <svg viewBox="0 0 24 24" style="width:12px; height:12px; fill:currentColor;"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
+              ${isActive ? 'Pronto' : 'Usar'}
+            </button>
+            ${!DEFAULT_PROFILES[p.id] ? `
+              <button class="profile-btn-del" title="Excluir Perfil">
+                <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+              </button>
+            ` : ''}
+          </div>
         `;
 
-        const nameSpan = document.createElement('div');
-        nameSpan.style.cssText = `font-size: 12px; font-weight: ${isActive ? '800' : '600'}; color: ${isActive ? '#fff' : '#cbd5e1'};`;
-        nameSpan.textContent = p.name + (isActive ? ' (Ativo)' : '');
-        nameSpan.addEventListener('click', () => {
+        item.querySelector('.profile-title-col').addEventListener('click', () => {
           applyProfile(p.id, true);
           if (navigator.vibrate) navigator.vibrate(20);
         });
 
-        const actionsDiv = document.createElement('div');
-        actionsDiv.style.cssText = 'display: flex; gap: 6px;';
+        const btnUse = item.querySelector('.profile-btn-use');
+        if (btnUse) {
+          btnUse.addEventListener('click', (e) => {
+            e.stopPropagation();
+            applyProfile(p.id, true);
+            if (navigator.vibrate) navigator.vibrate(20);
+          });
+        }
 
-        const btnLoad = document.createElement('button');
-        btnLoad.className = 'hud-mini-btn';
-        btnLoad.textContent = 'Usar';
-        btnLoad.style.cssText = 'font-size: 11px; padding: 4px 10px; background: #0984e3; color: #fff; border: none; border-radius: 6px; cursor: pointer;';
-        btnLoad.addEventListener('click', (e) => {
-          e.stopPropagation();
-          applyProfile(p.id, true);
-          if (navigator.vibrate) navigator.vibrate(20);
-        });
-        actionsDiv.appendChild(btnLoad);
-
-        if (!DEFAULT_PROFILES[p.id]) {
-          const btnDel = document.createElement('button');
-          btnDel.className = 'hud-mini-btn';
-          btnDel.textContent = '✕';
-          btnDel.style.cssText = 'font-size: 11px; padding: 4px 8px; background: #d63031; color: #fff; border: none; border-radius: 6px; cursor: pointer;';
+        const btnDel = item.querySelector('.profile-btn-del');
+        if (btnDel) {
           btnDel.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (confirm(`Excluir o perfil "${p.name}"?`)) {
+            if (confirm(`Excluir o perfil "${cleanName}"?`)) {
               delete userProfiles[p.id];
               saveProfiles();
               renderProfilesList();
             }
           });
-          actionsDiv.appendChild(btnDel);
         }
 
-        item.appendChild(nameSpan);
-        item.appendChild(actionsDiv);
         container.appendChild(item);
       });
     }
