@@ -191,6 +191,134 @@
       box-shadow: 0 0 10px rgba(9, 132, 227, 0.5);
     }
 
+    .profile-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 16px;
+      padding: 3px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #e2e8f0;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .profile-pill:hover, .profile-pill:active {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: var(--accent-color);
+      color: #fff;
+    }
+
+    /* ============================================================
+       ESTILOS DO MODO TOUCHPAD / MOUSE & TECLADO
+       ============================================================ */
+    .touchpad-wrapper {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+      padding: 44px 16px 12px 16px;
+      box-sizing: border-box;
+      gap: 10px;
+    }
+    .touchpad-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+    .tp-tool-btn {
+      background: #1f181c;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+    .tp-tool-btn:active {
+      background: var(--accent-color);
+      transform: scale(0.95);
+    }
+    .touchpad-surface {
+      flex: 1;
+      background: radial-gradient(circle at center, #1c1518 0%, #120e10 100%);
+      border: 2px dashed rgba(255, 255, 255, 0.12);
+      border-radius: 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      user-select: none;
+      touch-action: none;
+      box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+    }
+    .touchpad-surface.active-touch {
+      border-color: var(--accent-color);
+      box-shadow: inset 0 0 25px rgba(255, 71, 87, 0.2);
+    }
+    .touchpad-hint {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      color: #64748b;
+      font-size: 13px;
+      font-weight: 600;
+      pointer-events: none;
+      text-align: center;
+    }
+    .touchpad-buttons {
+      display: flex;
+      gap: 10px;
+      height: 52px;
+    }
+    .tp-mouse-btn {
+      flex: 1;
+      border: none;
+      border-radius: 12px;
+      background: #1c1518;
+      color: #cbd5e1;
+      font-size: 11.5px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.1s ease;
+    }
+    .tp-left-btn {
+      flex: 1.3;
+      background: #24191e;
+      border-color: rgba(255, 255, 255, 0.18);
+    }
+    .tp-mid-btn {
+      flex: 0.7;
+      font-size: 10.5px;
+    }
+    .tp-right-btn {
+      flex: 1.1;
+    }
+    .tp-mouse-btn:active, .tp-mouse-btn.pressed {
+      background: var(--accent-color);
+      color: #fff;
+      transform: scale(0.98);
+      box-shadow: 0 0 15px var(--accent-color);
+    }
+
     .top-actions {
       display: flex;
       align-items: center;
@@ -1000,6 +1128,12 @@
       <div class="mode-tabs">
         <div class="mode-tab active" id="tab-gamepad">🎮 Gamepad</div>
         <div class="mode-tab" id="tab-wheel">🏎️ Volante</div>
+        <div class="mode-tab" id="tab-touchpad">🖱️ Mouse</div>
+      </div>
+
+      <div class="profile-pill" id="btn-quick-profile" title="Perfil Atual (Toque para trocar)">
+        <span>📁</span>
+        <span id="current-profile-label">Padrão</span>
       </div>
 
       <!-- Alternador de Destino: PC (Wi-Fi) vs TV (Bluetooth) -->
@@ -1190,6 +1324,52 @@
   </div>
 
   <!-- ==========================================
+       MODO 3: TOUCHPAD & MOUSE PARA PC / TV
+       ========================================== -->
+  <div class="view-container" id="touchpad-view">
+    <div class="touchpad-wrapper">
+      <!-- Barra superior do touchpad com atalhos rápidos -->
+      <div class="touchpad-toolbar">
+        <button class="tp-tool-btn" id="tp-btn-keyboard">⌨️ Abrir Teclado</button>
+        <button class="tp-tool-btn" id="tp-btn-esc">ESC</button>
+        <button class="tp-tool-btn" id="tp-btn-tab">TAB</button>
+        <button class="tp-tool-btn" id="tp-btn-enter">ENTER ↵</button>
+        <button class="tp-tool-btn" id="tp-btn-backspace">⌫ APAGAR</button>
+        <div style="flex: 1;"></div>
+        <div class="tp-sens-selector">
+          <select id="tp-select-sens" class="hud-mini-btn" style="background:#1e181c; color:#fff; border:1px solid rgba(255,255,255,0.2); padding:3px 8px; border-radius:8px; font-size:11px;">
+            <option value="1.0">Sensibilidade: 1.0x</option>
+            <option value="1.6" selected>Sensibilidade: 1.6x</option>
+            <option value="2.5">Sensibilidade: 2.5x</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Área de toque do Trackpad -->
+      <div id="touchpad-surface" class="touchpad-surface">
+        <div class="touchpad-hint">
+          <span style="font-size: 15px;">🖱️ Área do Touchpad</span>
+          <span style="font-size: 11.5px; opacity: 0.65;">1 Dedo = Mover Cursor • Toque Rápido = Clique • 2 Dedos = Botão Direito / Rolagem</span>
+        </div>
+        <input type="text" id="touchpad-hidden-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px;">
+      </div>
+
+      <!-- Botões físicos do Mouse (Esquerdo, Meio e Direito) -->
+      <div class="touchpad-buttons">
+        <button id="tp-btn-left" class="tp-mouse-btn tp-left-btn">
+          <span>CLIQUE ESQUERDO</span>
+        </button>
+        <button id="tp-btn-middle" class="tp-mouse-btn tp-mid-btn" title="Botão do Meio">
+          <span>ROLAGEM</span>
+        </button>
+        <button id="tp-btn-right" class="tp-mouse-btn tp-right-btn">
+          <span>CLIQUE DIREITO</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
        PAINEL GERAL DE CONFIGURAÇÕES (MODAL UNIFICADO)
        ========================================== -->
   <div id="edit-modal">
@@ -1201,6 +1381,7 @@
 
       <div class="config-nav">
         <div class="config-nav-btn active" data-tab="tab-sens">🎛️ Sensibilidade</div>
+        <div class="config-nav-btn" data-tab="tab-profiles">📂 Perfis</div>
         <div class="config-nav-btn" data-tab="tab-theme">🎨 Temas & Cores</div>
         <div class="config-nav-btn" data-tab="tab-buttons">🔘 Botões Visíveis</div>
       </div>
@@ -1261,6 +1442,24 @@
           </button>
         </div>
 
+        <!-- SEÇÃO DE MIRA POR GIROSCÓPIO (GYRO AIMING) -->
+        <div style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 12px; padding-top: 12px; display: flex; flex-direction: column; gap: 10px;">
+          <div style="font-size: 13px; font-weight: 700; color: #70a1ff;">🎯 Mira por Giroscópio (Motion Aiming):</div>
+          <label class="toggle-item">
+            <input type="checkbox" id="chk-gyro-aim-enabled"> Ativar Mira Fina ao segurar LT (Gatilho de Mira)
+          </label>
+          <div class="slider-row">
+            <div class="slider-label-row">
+              <span>Sensibilidade da Mira Giroscópica</span>
+              <span id="lbl-gyro-aim-sens">100%</span>
+            </div>
+            <input type="range" id="rng-gyro-aim-sens" min="30" max="250" value="100">
+          </div>
+          <div style="font-size: 11px; color: #94a3b8; line-height: 1.3;">
+            💡 <i>No modo Gamepad, segure o <b>LT</b> e incline o celular para fazer micro-ajustes precisos na mira da arma, idêntico aos controles modernos.</i>
+          </div>
+        </div>
+
         <button class="save-btn" id="btn-open-edit-mode-from-modal" style="margin-top: 8px;">
           ✏️ EDITAR POSIÇÃO E TAMANHO DOS CONTROLES
         </button>
@@ -1270,6 +1469,29 @@
             <span>📥</span> BAIXAR APK ANDROID (BLUETOOTH TV & PC)
           </button>
         </a>
+      </div>
+
+      <!-- ABA 2: PERFIS DE JOGO -->
+      <div class="config-tab-content" id="tab-profiles">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+          <span style="font-size: 13px; font-weight: 700; color: #a09095;">Seus Perfis Salvos:</span>
+          <button class="hud-mini-btn" id="btn-create-new-profile" style="background:#10ac84; color:#fff; border:none; padding:4px 10px; font-size:11px; border-radius:6px; cursor:pointer;">
+            ➕ Novo Perfil
+          </button>
+        </div>
+
+        <div id="profiles-list-container" style="display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto;">
+          <!-- Lista de Perfis gerada via JS -->
+        </div>
+
+        <div style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; margin-top: auto;">
+          <button class="save-btn" id="btn-save-current-to-active-profile" style="font-size: 12px; padding: 10px; background: #2ed573;">
+            💾 Salvar Configurações Atuais no Perfil Ativo
+          </button>
+          <button class="edit-bar-btn" id="btn-reset-default-profiles" style="font-size: 11px; padding: 6px; color: #a4b0be;">
+            🔄 Restaurar Perfis Originais de Fábrica
+          </button>
+        </div>
       </div>
 
       <!-- ABA 2: TEMAS E CORES -->
@@ -1414,8 +1636,12 @@
     // --- ELEMENTOS DO DOM ---
     const tabGamepad = document.getElementById('tab-gamepad');
     const tabWheel = document.getElementById('tab-wheel');
+    const tabTouchpad = document.getElementById('tab-touchpad');
     const gamepadView = document.getElementById('gamepad-view');
     const wheelView = document.getElementById('wheel-view');
+    const touchpadView = document.getElementById('touchpad-view');
+    const btnQuickProfile = document.getElementById('btn-quick-profile');
+    const currentProfileLabel = document.getElementById('current-profile-label');
     const statusDot = document.getElementById('status-dot');
     const statusText = document.getElementById('status-text');
     const httpsBanner = document.getElementById('https-banner');
@@ -1467,6 +1693,12 @@
     const rngRumbleIntensity = document.getElementById('rng-rumble-intensity');
     const lblRumbleIntensity = document.getElementById('lbl-rumble-intensity');
     const btnTestRumble = document.getElementById('btn-test-rumble');
+    const chkGyroAimEnabled = document.getElementById('chk-gyro-aim-enabled');
+    const rngGyroAimSens = document.getElementById('rng-gyro-aim-sens');
+    const lblGyroAimSens = document.getElementById('lbl-gyro-aim-sens');
+    const btnCreateNewProfile = document.getElementById('btn-create-new-profile');
+    const btnSaveCurrentToActiveProfile = document.getElementById('btn-save-current-to-active-profile');
+    const btnResetDefaultProfiles = document.getElementById('btn-reset-default-profiles');
     const pickerCustomColor = document.getElementById('picker-custom-color');
     const rngGlow = document.getElementById('rng-glow');
     const lblGlowVal = document.getElementById('lbl-glow-val');
@@ -1585,6 +1817,19 @@
       lblRumbleIntensity.textContent = `${e.target.value}%`;
       saveAllSettings();
     });
+    if (chkGyroAimEnabled) {
+      chkGyroAimEnabled.addEventListener('change', (e) => {
+        config.gyroAimEnabled = e.target.checked;
+        saveAllSettings();
+      });
+    }
+    if (rngGyroAimSens) {
+      rngGyroAimSens.addEventListener('input', (e) => {
+        config.gyroAimSens = parseFloat((e.target.value / 100).toFixed(2));
+        lblGyroAimSens.textContent = `${e.target.value}%`;
+        saveAllSettings();
+      });
+    }
     btnTestRumble.addEventListener('click', () => {
       if (navigator.vibrate) {
         navigator.vibrate([70, 30, 120, 30, 80]);
@@ -1900,6 +2145,11 @@
         rngRumbleIntensity.value = Math.round(config.rumbleIntensity * 100);
         lblRumbleIntensity.textContent = `${rngRumbleIntensity.value}%`;
       }
+      if (chkGyroAimEnabled) chkGyroAimEnabled.checked = !!config.gyroAimEnabled;
+      if (rngGyroAimSens) {
+        rngGyroAimSens.value = Math.round((config.gyroAimSens || 1.0) * 100);
+        lblGyroAimSens.textContent = `${rngGyroAimSens.value}%`;
+      }
       if (config.customColor) pickerCustomColor.value = config.customColor;
 
       updateInvertBtnText();
@@ -1957,22 +2207,24 @@
     // --- MUDANÇA DE MODO ---
     tabGamepad.addEventListener('click', () => setMode('gamepad'));
     tabWheel.addEventListener('click', () => setMode('wheel'));
+    if (tabTouchpad) tabTouchpad.addEventListener('click', () => setMode('touchpad'));
     btnCenterSwitch.addEventListener('click', () => {
-      setMode(currentMode === 'gamepad' ? 'wheel' : 'gamepad');
+      if (currentMode === 'gamepad') setMode('wheel');
+      else if (currentMode === 'wheel') setMode('touchpad');
+      else setMode('gamepad');
     });
 
     function setMode(mode) {
       currentMode = mode;
-      if (mode === 'gamepad') {
-        tabGamepad.classList.add('active');
-        tabWheel.classList.remove('active');
-        gamepadView.classList.add('active');
-        wheelView.classList.remove('active');
-      } else {
-        tabWheel.classList.add('active');
-        tabGamepad.classList.remove('active');
-        wheelView.classList.add('active');
-        gamepadView.classList.remove('active');
+      tabGamepad.classList.toggle('active', mode === 'gamepad');
+      tabWheel.classList.toggle('active', mode === 'wheel');
+      if (tabTouchpad) tabTouchpad.classList.toggle('active', mode === 'touchpad');
+
+      gamepadView.classList.toggle('active', mode === 'gamepad');
+      wheelView.classList.toggle('active', mode === 'wheel');
+      if (touchpadView) touchpadView.classList.toggle('active', mode === 'touchpad');
+
+      if (mode === 'wheel') {
         initSensor();
       }
     }
@@ -2187,11 +2439,58 @@
       ws.onerror = () => ws.close();
     }
 
+    function sendWebSocketMessage(msgObj) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(msgObj));
+      }
+    }
+
+    let gyroAimOffsetX = 0;
+    let gyroAimOffsetY = 0;
+    let lastGyroAimBeta = null;
+    let lastGyroAimGamma = null;
+
+    window.addEventListener('deviceorientation', (e) => {
+      if (config.gyroAimEnabled && currentMode === "gamepad" && gpState.lt > 0.25) {
+        if (lastGyroAimBeta !== null && lastGyroAimGamma !== null) {
+          const dB = (e.beta - lastGyroAimBeta);
+          const dG = (e.gamma - lastGyroAimGamma);
+          const sens = (config.gyroAimSens || 1.0) * 0.045;
+          // Em paisagem, movimento horizontal da mão altera beta, vertical altera gamma
+          gyroAimOffsetX = Math.max(-0.65, Math.min(0.65, gyroAimOffsetX * 0.85 - dB * sens));
+          gyroAimOffsetY = Math.max(-0.65, Math.min(0.65, gyroAimOffsetY * 0.85 - dG * sens));
+        }
+        lastGyroAimBeta = e.beta;
+        lastGyroAimGamma = e.gamma;
+      } else {
+        lastGyroAimBeta = null;
+        lastGyroAimGamma = null;
+        gyroAimOffsetX = 0;
+        gyroAimOffsetY = 0;
+      }
+    });
+
     function networkLoop() {
-      if (!isEditMode) {
-        const payload = currentMode === "gamepad" 
-          ? { type: "gamepad_input", ...gpState } 
-          : { type: "input", ...wheelState };
+      if (!isEditMode && currentMode !== "touchpad") {
+        let payload;
+        if (currentMode === "gamepad") {
+          let final_rs_x = gpState.rs_x;
+          let final_rs_y = gpState.rs_y;
+
+          if (config.gyroAimEnabled && gpState.lt > 0.25) {
+            final_rs_x = Math.max(-1.0, Math.min(1.0, gpState.rs_x + gyroAimOffsetX));
+            final_rs_y = Math.max(-1.0, Math.min(1.0, gpState.rs_y + gyroAimOffsetY));
+          }
+
+          payload = { 
+            type: "gamepad_input", 
+            ...gpState,
+            rs_x: parseFloat(final_rs_x.toFixed(3)),
+            rs_y: parseFloat(final_rs_y.toFixed(3))
+          };
+        } else {
+          payload = { type: "input", ...wheelState };
+        }
 
         if (currentConnMode === "bluetooth" && window.AndroidController) {
           window.AndroidController.sendGamepadInput(JSON.stringify(payload));
@@ -2522,8 +2821,398 @@
       if (navigator.vibrate) navigator.vibrate(20);
     });
 
+    // ============================================================
+    // GERENCIADOR DE PERFIS DE JOGOS
+    // ============================================================
+    const DEFAULT_PROFILES = {
+      "racing": {
+        id: "racing",
+        name: "🏎️ Corrida (The Crew / Forza)",
+        mode: "wheel",
+        maxAngle: 45,
+        deadzone: 2,
+        smoothFactor: 0.50,
+        stickSens: 1.0,
+        invertSteer: true,
+        theme: "crimson",
+        customColor: null,
+        glow: 0.8,
+        gyroAimEnabled: false,
+        gyroAimSens: 1.0,
+        rumbleEnabled: true,
+        rumbleIntensity: 1.0
+      },
+      "shooter": {
+        id: "shooter",
+        name: "🎯 Shooter (GTA V / Cyberpunk)",
+        mode: "gamepad",
+        maxAngle: 30,
+        deadzone: 2,
+        smoothFactor: 0.30,
+        stickSens: 1.1,
+        invertSteer: false,
+        theme: "cyber",
+        customColor: null,
+        glow: 0.7,
+        gyroAimEnabled: true,
+        gyroAimSens: 1.2,
+        rumbleEnabled: true,
+        rumbleIntensity: 1.0
+      },
+      "casual": {
+        id: "casual",
+        name: "⚽ Esportes & Casual (FIFA)",
+        mode: "gamepad",
+        maxAngle: 30,
+        deadzone: 2,
+        smoothFactor: 0.30,
+        stickSens: 1.0,
+        invertSteer: false,
+        theme: "emerald",
+        customColor: null,
+        glow: 0.6,
+        gyroAimEnabled: false,
+        gyroAimSens: 1.0,
+        rumbleEnabled: true,
+        rumbleIntensity: 0.8
+      }
+    };
+
+    let userProfiles = {};
+
+    function initProfiles() {
+      const savedProfiles = localStorage.getItem('rw_user_profiles');
+      if (savedProfiles) {
+        try {
+          userProfiles = JSON.parse(savedProfiles);
+        } catch (e) {
+          userProfiles = { ...DEFAULT_PROFILES };
+        }
+      } else {
+        userProfiles = { ...DEFAULT_PROFILES };
+        saveProfiles();
+      }
+
+      const activeId = localStorage.getItem('rw_active_profile_id') || 'racing';
+      applyProfile(activeId, false);
+      renderProfilesList();
+    }
+
+    function saveProfiles() {
+      localStorage.setItem('rw_user_profiles', JSON.stringify(userProfiles));
+    }
+
+    function applyProfile(profileId, switchUiMode = true) {
+      const p = userProfiles[profileId] || DEFAULT_PROFILES[profileId] || Object.values(userProfiles)[0];
+      if (!p) return;
+
+      localStorage.setItem('rw_active_profile_id', p.id);
+      if (currentProfileLabel) {
+        const parts = p.name.split(' ');
+        currentProfileLabel.textContent = parts[0] + ' ' + (parts[1] || '');
+      }
+
+      config.maxAngle = p.maxAngle ?? config.maxAngle;
+      config.deadzone = p.deadzone ?? config.deadzone;
+      config.smoothFactor = p.smoothFactor ?? config.smoothFactor;
+      config.stickSens = p.stickSens ?? config.stickSens;
+      config.invertSteer = p.invertSteer ?? config.invertSteer;
+      config.theme = p.theme ?? config.theme;
+      config.customColor = p.customColor ?? null;
+      config.glow = p.glow ?? config.glow;
+      config.gyroAimEnabled = p.gyroAimEnabled ?? false;
+      config.gyroAimSens = p.gyroAimSens ?? 1.0;
+      config.rumbleEnabled = p.rumbleEnabled ?? true;
+      config.rumbleIntensity = p.rumbleIntensity ?? 1.0;
+
+      loadSettings();
+      saveAllSettings();
+
+      if (switchUiMode && p.mode) {
+        setMode(p.mode);
+      }
+
+      renderProfilesList();
+    }
+
+    function renderProfilesList() {
+      const container = document.getElementById('profiles-list-container');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const activeId = localStorage.getItem('rw_active_profile_id') || 'racing';
+
+      Object.values(userProfiles).forEach(p => {
+        const item = document.createElement('div');
+        const isActive = p.id === activeId;
+        item.style.cssText = `
+          display: flex; align-items: center; justify-content: space-between;
+          background: ${isActive ? 'rgba(9, 132, 227, 0.25)' : 'rgba(255,255,255,0.03)'};
+          border: 1px solid ${isActive ? '#0984e3' : 'rgba(255,255,255,0.1)'};
+          padding: 8px 12px; border-radius: 10px; cursor: pointer; transition: all 0.15s ease;
+        `;
+
+        const nameSpan = document.createElement('div');
+        nameSpan.style.cssText = `font-size: 12px; font-weight: ${isActive ? '800' : '600'}; color: ${isActive ? '#fff' : '#cbd5e1'};`;
+        nameSpan.textContent = p.name + (isActive ? ' (Ativo)' : '');
+        nameSpan.addEventListener('click', () => {
+          applyProfile(p.id, true);
+          if (navigator.vibrate) navigator.vibrate(20);
+        });
+
+        const actionsDiv = document.createElement('div');
+        actionsDiv.style.cssText = 'display: flex; gap: 6px;';
+
+        const btnLoad = document.createElement('button');
+        btnLoad.className = 'hud-mini-btn';
+        btnLoad.textContent = 'Usar';
+        btnLoad.style.cssText = 'font-size: 11px; padding: 4px 10px; background: #0984e3; color: #fff; border: none; border-radius: 6px; cursor: pointer;';
+        btnLoad.addEventListener('click', (e) => {
+          e.stopPropagation();
+          applyProfile(p.id, true);
+          if (navigator.vibrate) navigator.vibrate(20);
+        });
+        actionsDiv.appendChild(btnLoad);
+
+        if (!DEFAULT_PROFILES[p.id]) {
+          const btnDel = document.createElement('button');
+          btnDel.className = 'hud-mini-btn';
+          btnDel.textContent = '✕';
+          btnDel.style.cssText = 'font-size: 11px; padding: 4px 8px; background: #d63031; color: #fff; border: none; border-radius: 6px; cursor: pointer;';
+          btnDel.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (confirm(`Excluir o perfil "${p.name}"?`)) {
+              delete userProfiles[p.id];
+              saveProfiles();
+              renderProfilesList();
+            }
+          });
+          actionsDiv.appendChild(btnDel);
+        }
+
+        item.appendChild(nameSpan);
+        item.appendChild(actionsDiv);
+        container.appendChild(item);
+      });
+    }
+
+    if (btnCreateNewProfile) {
+      btnCreateNewProfile.addEventListener('click', () => {
+        const name = prompt("Nome do novo perfil (Ex: GTA V, Need For Speed):");
+        if (name && name.trim()) {
+          const newId = 'custom_' + Date.now();
+          userProfiles[newId] = {
+            id: newId,
+            name: name.trim(),
+            mode: currentMode,
+            ...config
+          };
+          saveProfiles();
+          applyProfile(newId, false);
+          renderProfilesList();
+        }
+      });
+    }
+
+    if (btnSaveCurrentToActiveProfile) {
+      btnSaveCurrentToActiveProfile.addEventListener('click', () => {
+        const activeId = localStorage.getItem('rw_active_profile_id') || 'racing';
+        if (userProfiles[activeId]) {
+          userProfiles[activeId] = {
+            ...userProfiles[activeId],
+            mode: currentMode,
+            ...config
+          };
+          saveProfiles();
+          alert(`Perfil "${userProfiles[activeId].name}" atualizado com sucesso!`);
+          if (navigator.vibrate) navigator.vibrate(25);
+        }
+      });
+    }
+
+    if (btnResetDefaultProfiles) {
+      btnResetDefaultProfiles.addEventListener('click', () => {
+        if (confirm("Deseja restaurar todos os perfis de fábrica originais?")) {
+          userProfiles = { ...DEFAULT_PROFILES };
+          saveProfiles();
+          applyProfile('racing', true);
+          renderProfilesList();
+        }
+      });
+    }
+
+    if (btnQuickProfile) {
+      btnQuickProfile.addEventListener('click', () => {
+        editModal.style.display = 'flex';
+        document.querySelectorAll('.config-nav-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.config-tab-content').forEach(c => c.classList.remove('active'));
+        const profTabBtn = document.querySelector('.config-nav-btn[data-tab="tab-profiles"]');
+        const profTabContent = document.getElementById('tab-profiles');
+        if (profTabBtn) profTabBtn.classList.add('active');
+        if (profTabContent) profTabContent.classList.add('active');
+      });
+    }
+
+    // ============================================================
+    // MODO TOUCHPAD / MOUSE & TECLADO VIRTUAL
+    // ============================================================
+    const touchpadSurface = document.getElementById('touchpad-surface');
+    const tpBtnLeft = document.getElementById('tp-btn-left');
+    const tpBtnMiddle = document.getElementById('tp-btn-middle');
+    const tpBtnRight = document.getElementById('tp-btn-right');
+    const tpBtnKeyboard = document.getElementById('tp-btn-keyboard');
+    const tpHiddenInput = document.getElementById('touchpad-hidden-input');
+    const tpSelectSens = document.getElementById('tp-select-sens');
+
+    let tpSens = 1.6;
+    if (tpSelectSens) {
+      tpSelectSens.addEventListener('change', (e) => {
+        tpSens = parseFloat(e.target.value);
+      });
+    }
+
+    let tpStartX = 0, tpStartY = 0;
+    let tpLastX = 0, tpLastY = 0;
+    let tpStartTime = 0;
+    let tpMoved = false;
+    let tpTouchCount = 0;
+
+    if (touchpadSurface) {
+      touchpadSurface.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        touchpadSurface.classList.add('active-touch');
+        tpTouchCount = e.touches.length;
+        tpStartTime = Date.now();
+        tpMoved = false;
+
+        if (e.touches.length === 1) {
+          tpStartX = e.touches[0].clientX;
+          tpStartY = e.touches[0].clientY;
+          tpLastX = tpStartX;
+          tpLastY = tpStartY;
+        } else if (e.touches.length === 2) {
+          tpLastY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        }
+      }, { passive: false });
+
+      touchpadSurface.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (e.touches.length === 1) {
+          const curX = e.touches[0].clientX;
+          const curY = e.touches[0].clientY;
+          const dx = (curX - tpLastX) * tpSens;
+          const dy = (curY - tpLastY) * tpSens;
+          tpLastX = curX;
+          tpLastY = curY;
+
+          if (Math.abs(curX - tpStartX) > 4 || Math.abs(curY - tpStartY) > 4) {
+            tpMoved = true;
+          }
+
+          sendWebSocketMessage({
+            type: "mouse_move",
+            dx: Math.round(dx),
+            dy: Math.round(dy)
+          });
+        } else if (e.touches.length === 2) {
+          tpMoved = true;
+          const curY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+          const dy = (curY - tpLastY) * 0.15;
+          tpLastY = curY;
+
+          sendWebSocketMessage({
+            type: "mouse_scroll",
+            dy: dy
+          });
+        }
+      }, { passive: false });
+
+      touchpadSurface.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        touchpadSurface.classList.remove('active-touch');
+        const duration = Date.now() - tpStartTime;
+
+        if (!tpMoved && duration < 260) {
+          if (tpTouchCount === 1) {
+            sendWebSocketMessage({ type: "mouse_click", button: "left", action: "click" });
+            if (navigator.vibrate) navigator.vibrate(15);
+          } else if (tpTouchCount === 2) {
+            sendWebSocketMessage({ type: "mouse_click", button: "right", action: "click" });
+            if (navigator.vibrate) navigator.vibrate([15, 30, 15]);
+          }
+        }
+      }, { passive: false });
+    }
+
+    function setupTpButton(btn, buttonName) {
+      if (!btn) return;
+      btn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        btn.classList.add('pressed');
+        sendWebSocketMessage({ type: "mouse_click", button: buttonName, action: "down" });
+        if (navigator.vibrate) navigator.vibrate(20);
+      }, { passive: false });
+      btn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        btn.classList.remove('pressed');
+        sendWebSocketMessage({ type: "mouse_click", button: buttonName, action: "up" });
+      }, { passive: false });
+      btn.addEventListener('mousedown', () => {
+        btn.classList.add('pressed');
+        sendWebSocketMessage({ type: "mouse_click", button: buttonName, action: "down" });
+      });
+      btn.addEventListener('mouseup', () => {
+        btn.classList.remove('pressed');
+        sendWebSocketMessage({ type: "mouse_click", button: buttonName, action: "up" });
+      });
+    }
+
+    setupTpButton(tpBtnLeft, "left");
+    setupTpButton(tpBtnRight, "right");
+
+    if (tpBtnMiddle) {
+      tpBtnMiddle.addEventListener('click', () => {
+        sendWebSocketMessage({ type: "mouse_click", button: "middle", action: "click" });
+        if (navigator.vibrate) navigator.vibrate(15);
+      });
+    }
+
+    function setupKeyShortcut(id, keyName) {
+      const b = document.getElementById(id);
+      if (b) {
+        b.addEventListener('click', () => {
+          sendWebSocketMessage({ type: "keyboard_input", key: keyName });
+          if (navigator.vibrate) navigator.vibrate(15);
+        });
+      }
+    }
+    setupKeyShortcut('tp-btn-esc', 'Escape');
+    setupKeyShortcut('tp-btn-tab', 'Tab');
+    setupKeyShortcut('tp-btn-enter', 'Enter');
+    setupKeyShortcut('tp-btn-backspace', 'Backspace');
+
+    if (tpBtnKeyboard && tpHiddenInput) {
+      tpBtnKeyboard.addEventListener('click', () => {
+        tpHiddenInput.focus();
+        if (navigator.vibrate) navigator.vibrate(20);
+      });
+
+      tpHiddenInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' || e.key === 'Enter' || e.key === 'Tab' || e.key === 'Escape') {
+          sendWebSocketMessage({ type: "keyboard_input", key: e.key });
+        }
+      });
+
+      tpHiddenInput.addEventListener('input', (e) => {
+        if (e.data) {
+          sendWebSocketMessage({ type: "keyboard_input", key: e.data });
+          tpHiddenInput.value = '';
+        }
+      });
+    }
+
     // Inicialização
-    loadSettings();
+    initProfiles();
     loadSavedLayout();
     loadCustomLayouts();
     connectWS();

@@ -38,6 +38,76 @@ except Exception:
     HAVE_PYNPUT = False
     kb = None
 
+import ctypes
+
+
+class MouseKeyboardHandler:
+    """Gerencia eventos de Mouse e Teclado com latência ultra-baixa via APIs nativas do Windows."""
+
+    @staticmethod
+    def move(dx, dy):
+        if sys.platform == "win32":
+            try:
+                ctypes.windll.user32.mouse_event(0x0001, int(dx), int(dy), 0, 0)
+            except Exception:
+                pass
+
+    @staticmethod
+    def click(button="left", action="click"):
+        if sys.platform != "win32":
+            return
+        try:
+            if button == "left":
+                if action == "down":
+                    ctypes.windll.user32.mouse_event(0x0002, 0, 0, 0, 0)
+                elif action == "up":
+                    ctypes.windll.user32.mouse_event(0x0004, 0, 0, 0, 0)
+                else:
+                    ctypes.windll.user32.mouse_event(0x0002, 0, 0, 0, 0)
+                    ctypes.windll.user32.mouse_event(0x0004, 0, 0, 0, 0)
+            elif button == "right":
+                if action == "down":
+                    ctypes.windll.user32.mouse_event(0x0008, 0, 0, 0, 0)
+                elif action == "up":
+                    ctypes.windll.user32.mouse_event(0x0010, 0, 0, 0, 0)
+                else:
+                    ctypes.windll.user32.mouse_event(0x0008, 0, 0, 0, 0)
+                    ctypes.windll.user32.mouse_event(0x0010, 0, 0, 0, 0)
+        except Exception:
+            pass
+
+    @staticmethod
+    def scroll(dy):
+        if sys.platform == "win32":
+            try:
+                ctypes.windll.user32.mouse_event(0x0800, 0, 0, int(dy * 120), 0)
+            except Exception:
+                pass
+
+    @staticmethod
+    def type_key(key):
+        if HAVE_PYNPUT and kb:
+            try:
+                special_keys = {
+                    "Enter": Key.enter,
+                    "Backspace": Key.backspace,
+                    "Space": Key.space,
+                    "Tab": Key.tab,
+                    "Escape": Key.esc,
+                    "ArrowUp": Key.up,
+                    "ArrowDown": Key.down,
+                    "ArrowLeft": Key.left,
+                    "ArrowRight": Key.right,
+                    "Delete": Key.delete,
+                }
+                if key in special_keys:
+                    kb.press(special_keys[key])
+                    kb.release(special_keys[key])
+                elif len(key) == 1:
+                    kb.type(key)
+            except Exception:
+                pass
+
 HTTP_PORT = 8080
 HTTPS_PORT = 8443
 WS_PORT = 8765
@@ -369,6 +439,14 @@ async def ws_handler(websocket):
                 controller.handle_wheel_input(data)
             elif msg_type == "gamepad_input":
                 controller.handle_gamepad_input(data)
+            elif msg_type == "mouse_move":
+                MouseKeyboardHandler.move(data.get("dx", 0), data.get("dy", 0))
+            elif msg_type == "mouse_click":
+                MouseKeyboardHandler.click(data.get("button", "left"), data.get("action", "click"))
+            elif msg_type == "mouse_scroll":
+                MouseKeyboardHandler.scroll(data.get("dy", 0))
+            elif msg_type == "keyboard_input":
+                MouseKeyboardHandler.type_key(data.get("key", ""))
             elif msg_type == "ping":
                 await websocket.send(json.dumps({"type": "pong", "time": data.get("time")}))
 
