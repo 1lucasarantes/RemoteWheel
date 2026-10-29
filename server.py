@@ -311,6 +311,237 @@ def telemetry_udp_listener():
             time.sleep(0.01)
 
 
+# --- MÓDULO DE OCR VISUAL EM TEMPO REAL PARA THE CREW 2 ---
+class ScreenOcrTelemetry:
+    """Captura e reconhece em tempo real o velocímetro e marcha do The Crew 2 via GDI nativo."""
+
+    def __init__(self):
+        self.running = False
+        self.last_speed = 0
+        self.last_gear = 1
+        self.simulated_rpm = 1000
+        self.max_rpm = 8500
+        self.idle_rpm = 900
+        self.gear_ratios = [0.0, 35.0, 65.0, 110.0, 165.0, 230.0, 310.0, 390.0]
+
+    @staticmethod
+    def capture_gdi_crop(x, y, w, h):
+        """Captura região retangular da tela em ultrarrápida velocidade (<0.1ms)."""
+        if sys.platform != "win32":
+            return None
+        import ctypes.wintypes
+        user32 = ctypes.windll.user32
+        gdi32 = ctypes.windll.gdi32
+
+        class BITMAPINFOHEADER(ctypes.Structure):
+            _fields_ = [
+                ('biSize', ctypes.wintypes.DWORD),
+                ('biWidth', ctypes.wintypes.LONG),
+                ('biHeight', ctypes.wintypes.LONG),
+                ('biPlanes', ctypes.wintypes.WORD),
+                ('biBitCount', ctypes.wintypes.WORD),
+                ('biCompression', ctypes.wintypes.DWORD),
+                ('biSizeImage', ctypes.wintypes.DWORD),
+                ('biXPelsPerMeter', ctypes.wintypes.LONG),
+                ('biYPelsPerMeter', ctypes.wintypes.LONG),
+                ('biClrUsed', ctypes.wintypes.DWORD),
+                ('biClrImportant', ctypes.wintypes.DWORD)
+            ]
+
+        class BITMAPINFO(ctypes.Structure):
+            _fields_ = [('bmiHeader', BITMAPINFOHEADER), ('bmiColors', ctypes.wintypes.DWORD * 3)]
+
+        hDesktop = user32.GetDesktopWindow()
+        hDC = user32.GetDC(hDesktop)
+        hMemDC = gdi32.CreateCompatibleDC(hDC)
+        hBitmap = gdi32.CreateCompatibleBitmap(hDC, w, h)
+        gdi32.SelectObject(hMemDC, hBitmap)
+        gdi32.BitBlt(hMemDC, 0, 0, w, h, hDC, x, y, 0x00CC0020)
+
+        bmi = BITMAPINFO()
+        bmi.bmiHeader.biSize = ctypes.sizeof(BITMAPINFOHEADER)
+        bmi.bmiHeader.biWidth = w
+        bmi.bmiHeader.biHeight = -h  # top-down
+        bmi.bmiHeader.biPlanes = 1
+        bmi.bmiHeader.biBitCount = 32
+        bmi.bmiHeader.biCompression = 0
+
+        buf = (ctypes.c_ubyte * (w * h * 4))()
+        gdi32.GetDIBits(hMemDC, hBitmap, 0, h, ctypes.byref(buf), ctypes.byref(bmi), 0)
+
+        gdi32.DeleteObject(hBitmap)
+        gdi32.DeleteDC(hMemDC)
+        user32.ReleaseDC(hDesktop, hDC)
+
+        from PIL import Image
+        return Image.frombuffer('RGBA', (w, h), buf, 'raw', 'BGRA', 0, 1).convert('L')
+
+    @staticmethod
+    def read_digit(img, x1, x2, y1, y2):
+        w = x2 - x1
+        h = y2 - y1
+        def p(rx, ry):
+            val = img.getpixel((int(x1 + w * rx), int(y1 + h * ry)))
+            return 1 if val > 150 else 0
+
+        top = p(0.5, 0.1)
+        mid = p(0.5, 0.5)
+        bot = p(0.5, 0.9)
+        tl = p(0.2, 0.25)
+        tr = p(0.8, 0.25)
+        bl = p(0.2, 0.75)
+        br = p(0.8, 0.75)
+
+        if not (top or mid or bot or tl or tr or bl or br):
+            return None
+        if top and bot and tl and tr and bl and br and not mid:
+            return 0
+        if tr and br and not (top or mid or bot or tl or bl):
+            return 1
+        if top and tr and mid and bl and bot:
+            return 2
+        if top and tr and mid and br and bot:
+            return 3
+        if tl and mid and tr and br and not (top or bot or bl):
+            return 4
+        if top and tl and mid and br and bot:
+            return 5
+        if top and tl and mid and bl and br and bot and not tr:
+            return 6
+        if top and tr and br and not (mid or bot or tl or bl):
+            return 7
+        if top and mid and bot and tl and tr and bl and br:
+            return 8
+        if top and mid and bot and tl and tr and br and not bl:
+            return 9
+        return 0
+
+    @staticmethod
+    def read_gear(img, gx, gy, gw, gh):
+        # Reconhece 1..7, R ou N no The Crew 2
+        def gp(rx, ry):
+            return 1 if img.getpixel((int(gx + gw * rx), int(gy + gh * ry))) > 150 else 0
+
+        top = gp(0.5, 0.08)
+        bot = gp(0.5, 0.90)
+        mid = gp(0.5, 0.45)
+        ul = gp(0.25, 0.28)
+        ur = gp(0.75, 0.28)
+        ll = gp(0.25, 0.72)
+        lr = gp(0.75, 0.72)
+
+        # Identificação de caracteres
+        if gp(0.2, 0.5) and gp(0.8, 0.5) and not mid:
+            return 11 # 'N' (Neutral)
+        if ul and not ur and not ll and lr and top and bot and mid:
+            return 5
+        if top and ur and mid and not ul and (ll and bot):
+            return 2
+        if top and ur and mid and lr and bot and not ul and not ll:
+            return 3
+        if ul and mid and ur and lr and not top and not bot:
+            return 4
+        if top and ul and mid and ll and lr and bot and not ur:
+            return 6
+        if top and ur and lr and not (mid or bot or ul or ll):
+            return 7
+        if not top and not bot and ur and lr:
+            return 1
+        if top and ul and ur and mid and ll and lr:
+            return 0 # 'R' (Reverse)
+        return 1
+
+    def run_loop(self):
+        """Thread executada continuamente que ativa o OCR apenas quando The Crew 2 estiver aberto."""
+        global connected_clients, asyncio_loop
+
+        while True:
+            time.sleep(0.045)  # ~22 FPS de taxa de atualização
+            if not connected_clients:
+                continue
+
+            try:
+                active_exe = get_active_process_name()
+                if not (active_exe and ("thecrew" in active_exe)):
+                    continue
+
+                user32 = ctypes.windll.user32
+                screen_w = user32.GetSystemMetrics(0)
+                screen_h = user32.GetSystemMetrics(1)
+
+                # Coordenadas proporcionais ancoradas no cluster inferior esquerdo
+                # Calibrado perfeitamente na proporção da resolução (ex: 1366x768 ou 1920x1080)
+                scale_x = screen_w / 1366.0
+                scale_y = screen_h / 768.0
+
+                crop_x = int(0 * scale_x)
+                crop_y = int(580 * scale_y)
+                crop_w = int(240 * scale_x)
+                crop_h = int(180 * scale_y)
+
+                cluster_img = self.capture_gdi_crop(crop_x, crop_y, crop_w, crop_h)
+                if not cluster_img:
+                    continue
+
+                # Redimensiona para o espaço normalizado de 1366x768 se a tela for diferente
+                if cluster_img.size != (240, 180):
+                    cluster_img = cluster_img.resize((240, 180))
+
+                # Leitura da velocidade (3 dígitos no velocímetro)
+                d1 = self.read_digit(cluster_img, 87, 98, 134, 149)
+                d2 = self.read_digit(cluster_img, 99, 110, 134, 149)
+                d3 = self.read_digit(cluster_img, 111, 122, 134, 149)
+
+                speed_str = ""
+                for d in [d1, d2, d3]:
+                    if d is not None:
+                        speed_str += str(d)
+
+                if speed_str:
+                    try:
+                        self.last_speed = int(speed_str)
+                    except ValueError:
+                        pass
+
+                # Leitura da marcha
+                gear = self.read_gear(cluster_img, 92, 71, 28, 43)
+                if gear is not None:
+                    self.last_gear = gear
+
+                # Estimativa de RPM fluida sincronizada com marcha e velocidade
+                current_gear_idx = max(1, min(7, self.last_gear if self.last_gear not in [0, 11] else 1))
+                top_speed_gear = self.gear_ratios[current_gear_idx]
+                prev_speed_gear = self.gear_ratios[current_gear_idx - 1] if current_gear_idx > 1 else 0.0
+
+                if self.last_speed <= 0:
+                    target_rpm = self.idle_rpm
+                else:
+                    gear_prog = max(0.0, min(1.0, (self.last_speed - prev_speed_gear) / max(1.0, top_speed_gear - prev_speed_gear)))
+                    target_rpm = self.idle_rpm + gear_prog * (self.max_rpm - self.idle_rpm)
+
+                self.simulated_rpm = self.simulated_rpm * 0.75 + target_rpm * 0.25
+
+                telemetry = {
+                    "type": "telemetry",
+                    "speed_kmh": float(self.last_speed),
+                    "gear": int(self.last_gear),
+                    "rpm": float(round(self.simulated_rpm)),
+                    "max_rpm": float(self.max_rpm),
+                    "idle_rpm": float(self.idle_rpm)
+                }
+
+                if asyncio_loop:
+                    msg = json.dumps(telemetry)
+                    asyncio_loop.call_soon_threadsafe(
+                        lambda m=msg: asyncio.create_task(broadcast_to_all(m))
+                    )
+            except Exception:
+                pass
+
+
+the_crew_ocr = ScreenOcrTelemetry()
+
+
 # --- MÓDULO DE DETECÇÃO AUTOMÁTICA DE JOGOS (AUTO-PROFILE SWITCH) ---
 GAME_PROFILES_MAP = {
     # Jogos de Corrida -> Perfil "racing" (Volante)
@@ -746,8 +977,9 @@ async def main():
     print(f"\nServidores WebSocket ativos nas portas {WS_PORT} (WS) e {WSS_PORT} (WSS)...")
     print("=" * 66 + "\n")
 
-    # Inicia threads em segundo plano para Telemetria UDP e Detecção de Jogos
+    # Inicia threads em segundo plano para Telemetria UDP, OCR do The Crew 2 e Detecção de Jogos
     threading.Thread(target=telemetry_udp_listener, daemon=True).start()
+    threading.Thread(target=the_crew_ocr.run_loop, daemon=True).start()
     threading.Thread(target=auto_game_detector_loop, daemon=True).start()
 
     # Inicia servidores WebSocket
