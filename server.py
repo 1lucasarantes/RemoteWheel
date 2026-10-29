@@ -417,38 +417,69 @@ class ScreenOcrTelemetry:
         return 0
 
     @staticmethod
-    def read_gear(img, gx, gy, gw, gh):
-        # Reconhece 1..7, R ou N no The Crew 2
-        def gp(rx, ry):
-            return 1 if img.getpixel((int(gx + gw * rx), int(gy + gh * ry))) > 150 else 0
+    def read_gear(img):
+        """Reconhece com alta precisão 1..7, R ou N no The Crew 2 inspecionando pontos-chave invariantes."""
+        # Bounding box calibrado do caractere de marcha: x in [89, 121], y in [71, 113]
+        def p(x, y):
+            try:
+                return 1 if img.getpixel((x, y)) > 150 else 0
+            except Exception:
+                return 0
 
-        top = gp(0.5, 0.08)
-        bot = gp(0.5, 0.90)
-        mid = gp(0.5, 0.45)
-        ul = gp(0.25, 0.28)
-        ur = gp(0.75, 0.28)
-        ll = gp(0.25, 0.72)
-        lr = gp(0.75, 0.72)
+        # Amostragem em 7 pontos cirúrgicos
+        tl = p(98, 83)      # Haste superior esquerda
+        tr = p(112, 83)     # Haste superior direita
+        bl = p(98, 96)      # Haste inferior esquerda
+        br = p(112, 96)     # Haste inferior direita
+        top = p(105, 74)    # Barra horizontal superior
+        mid = p(105, 89)    # Barra horizontal central
+        bot = p(105, 109)   # Barra horizontal inferior
 
-        # Identificação de caracteres
-        if gp(0.2, 0.5) and gp(0.8, 0.5) and not mid:
-            return 11 # 'N' (Neutral)
-        if ul and not ur and not ll and lr and top and bot and mid:
-            return 5
-        if top and ur and mid and not ul and (ll and bot):
-            return 2
-        if top and ur and mid and lr and bot and not ul and not ll:
-            return 3
-        if ul and mid and ur and lr and not top and not bot:
-            return 4
-        if top and ul and mid and ll and lr and bot and not ur:
-            return 6
-        if top and ur and lr and not (mid or bot or ul or ll):
-            return 7
-        if not top and not bot and ur and lr:
+        # 1ª Marcha: apenas haste direita, sem topo e sem fundo
+        if not top and not bot and not tl and not bl and (tr or br):
             return 1
-        if top and ul and ur and mid and ll and lr:
-            return 0 # 'R' (Reverse)
+
+        # Neutro ('N'): Hastes verticais completas em ambos os lados, mas SEM barra horizontal central
+        if tl and bl and tr and br and not mid:
+            return 11  # 'N' (Neutro)
+
+        # 4ª Marcha: TL, TR, BR e MID preenchidos; SEM barra superior e SEM barra inferior
+        if tl and tr and br and mid and not top and not bot:
+            return 4
+
+        # 5ª Marcha: Topo, Meio, Fundo preenchidos; Superior-Esquerda (TL) e Inferior-Direita (BR) preenchidos;
+        # Buraco Superior-Direito (TR=0) e Buraco Inferior-Esquerdo (BL=0)
+        if tl and not tr and not bl and br:
+            return 5
+
+        # 6ª Marcha: Loop inferior fechado (BL e BR), haste esquerda (TL), meio e fundo preenchidos; SEM TR
+        if tl and not tr and bl and br:
+            return 6
+
+        # 2ª Marcha: TR, MID, BL preenchidos; sem TL e sem BR
+        if not tl and tr and bl and not br:
+            return 2
+
+        # 3ª Marcha: Lado direito preenchido (TR e BR), meio, topo e fundo; lado esquerdo aberto (TL=0 e BL=0)
+        if not tl and tr and not bl and br and mid:
+            return 3
+
+        # 7ª Marcha: Barra superior e descida pela direita (TR e BR); sem MID, sem BOT, sem TL, sem BL
+        if top and tr and br and not mid and not bot:
+            return 7
+
+        # Marcha Ré ('R'): Loop superior fechado (TL, TR, TOP, MID) com perna direita descendo (BR)
+        if tl and tr and top and mid and br and not bot:
+            return 0  # 'R' (Ré)
+
+        # Fallback inteligente se houve pequeno deslocamento
+        if tl and br and not tr:
+            return 5
+        if tl and tr and br and not top:
+            return 4
+        if tr and br and not tl:
+            return 3
+
         return 1
 
     def run_loop(self):
@@ -503,8 +534,8 @@ class ScreenOcrTelemetry:
                     except ValueError:
                         pass
 
-                # Leitura da marcha
-                gear = self.read_gear(cluster_img, 92, 71, 28, 43)
+                # Leitura da marcha com novo discriminador cirúrgico
+                gear = self.read_gear(cluster_img)
                 if gear is not None:
                     self.last_gear = gear
 
